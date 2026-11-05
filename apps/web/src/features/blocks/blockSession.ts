@@ -7,6 +7,7 @@ type BlockSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 const REMOTE = 'remote';
 /** Keystrokes inside this window travel as one update. */
 const FLUSH_MS = 120;
+const RETRY_MS = 1000;
 
 export type BlockStatus = 'joining' | 'live' | 'offline' | 'denied';
 
@@ -112,7 +113,7 @@ export class BlockSession {
     this.sending = true;
     const update = Y.mergeUpdates(this.queue);
     this.queue = [];
-    const result = await new Promise<{ ok: boolean; message?: string }>((resolve) => {
+    const result = await new Promise<{ ok: boolean; code?: string; message?: string }>((resolve) => {
       this.socket.timeout(8000).emit('block:update', { blockId: this.blockId, update, clientUpdateId: crypto.randomUUID() }, (err, res) => {
         resolve(err ? { ok: false, message: 'timeout' } : res);
       });
@@ -125,6 +126,15 @@ export class BlockSession {
     }
     if (result.message === 'timeout') {
       this.queue.unshift(update);
+      return;
+    }
+    if (result.code === 'RATE_LIMITED') {
+      // Nothing is wrong with the edit, so it waits rather than being thrown away.
+      this.queue.unshift(update);
+      this.timer ??= setTimeout(() => {
+        this.timer = null;
+        void this.flush();
+      }, RETRY_MS);
       return;
     }
     // Refused by the server. Local state is now ahead of the truth, so start again from the server's copy.

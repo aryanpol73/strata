@@ -57,6 +57,9 @@ parent content. The inviter should describe the context in the branch itself.
 
 Redis-backed in production: login, register, refresh, guest redeem, message send, blocking ACK, search, and media signing.
 
+Socket writes aren't reached by HTTP limits, so each connection has its own token bucket covering block updates, block
+joins and receipts. A rate-limited block edit is kept and retried by the client.
+
 ## Media
 
 - The server signs uploads, and bytes go directly to Cloudinary, or to an authenticated local endpoint in development.
@@ -93,7 +96,6 @@ claim otherwise unless an established protocol is implemented and independently 
 ## Known gaps before public launch
 
 - No email verification or password reset. Both need an email provider.
-- No rate limit on Yjs updates over the socket. They are size-limited and validated, but an authorized member could flood a block.
 - No two-factor authentication.
 - No malware scanning of uploads.
 - No moderation or abuse reporting.

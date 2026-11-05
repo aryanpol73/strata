@@ -7,11 +7,16 @@ import { useStore, type PendingMessage } from './store';
 const get = useStore.getState;
 
 const newId = () => crypto.randomUUID();
+const flushOnline = () => void flushOutbox();
+const START_RETRY_MS = 4000;
 
 async function enter(res: AuthResponse) {
   client.setToken(res.accessToken);
   get().setAuth(res.user, res.sessionId);
   connectSocket();
+  // HTTP can fail while the socket stays up, so waiting for a reconnect alone could strand the outbox.
+  window.removeEventListener('online', flushOnline);
+  window.addEventListener('online', flushOnline);
   await Promise.all([loadRooms(), loadNotifications()]);
   await syncTimezone();
   await restoreOutbox();
@@ -35,10 +40,26 @@ async function start() {
     if (cached.length) {
       get().setRooms(cached);
       useStore.setState({ authStatus: 'ready', connection: 'offline', me: JSON.parse(localStorage.getItem('strata:me') ?? 'null') });
+      retryStartWhenOnline();
     } else {
       get().setAuth(null);
     }
   }
+}
+
+/**
+ * Started without a network, so there's no token and no socket yet. The `online` event can fire a moment before the
+ * network actually works, so it can't be the only trigger: a timer keeps trying as well.
+ */
+function retryStartWhenOnline() {
+  const retry = () => {
+    clearTimeout(timer);
+    window.removeEventListener('online', retry);
+    starting = null;
+    void bootstrap();
+  };
+  const timer = setTimeout(retry, START_RETRY_MS);
+  window.addEventListener('online', retry);
 }
 
 let starting: Promise<void> | null = null;
@@ -153,7 +174,15 @@ interface SendOptions {
   ackDeadline?: string;
 }
 
+/**
+ * Only a definite refusal drops a message from the outbox. Being offline, a server having a bad moment, or a rate limit
+ * all say nothing about the message itself, so it stays queued and goes out later.
+ */
+const isRetryable = (err: unknown) => err instanceof ApiError && (err.code === 'NETWORK' || err.status === 429 || err.status >= 500);
+
 async function deliver(p: PendingMessage) {
+  // Between the network returning and sign-in finishing there's no token yet, which isn't the message's fault.
+  if (!client.getToken()) throw new ApiError(0, 'NETWORK', 'Not connected yet');
   const { message } = await api<{ message: MessageDTO }>(`/rooms/${p.roomId}/messages`, {
     method: 'POST',
     body: {
@@ -171,15 +200,13 @@ async function deliver(p: PendingMessage) {
 /** Shown straight away, kept in the outbox until confirmed, and safe to retry because the id never changes. */
 export async function sendText(roomId: string, text: string, options: SendOptions) {
   const entry: PendingMessage = { clientMessageId: newId(), roomId, text, ...options, createdAt: Date.now(), failed: false };
-  get().addPending(entry);
+  // Durable first: anything shown as sending has to survive the tab closing a moment later.
   await db.outbox.put({ ...entry }).catch(() => {});
+  get().addPending(entry);
   try {
     await deliver(entry);
   } catch (err) {
-    if (err instanceof ApiError && err.code === 'NETWORK') {
-      get().setPendingFailed(roomId, entry.clientMessageId, false);
-      return;
-    }
+    if (isRetryable(err)) return;
     await db.outbox.delete(entry.clientMessageId);
     get().setPendingFailed(roomId, entry.clientMessageId, true);
     throw err;
@@ -215,7 +242,7 @@ export async function flushOutbox() {
       try {
         await deliver({ ...entry, failed: false });
       } catch (err) {
-        if (err instanceof ApiError && err.code === 'NETWORK') break;
+        if (isRetryable(err)) break;
         await db.outbox.delete(entry.clientMessageId);
         get().setPendingFailed(entry.roomId, entry.clientMessageId, true);
       }

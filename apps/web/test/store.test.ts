@@ -63,6 +63,24 @@ describe('the store', () => {
     expect(get().pending.r1).toHaveLength(1);
   });
 
+  it('keeps a message that arrived while the page request was in flight', () => {
+    get().upsertMessages('r1', [message({ id: 'live', seq: 9, rev: 9 })]);
+    get().setPage('r1', { messages: [message({ id: 'old', seq: 3, rev: 3 })], hasMore: false }, 'replace');
+    expect(get().messages.r1!.items.map((m) => m.id)).toEqual(['old', 'live']);
+  });
+
+  it('keeps an edit that landed while the page request was in flight', () => {
+    get().upsertMessages('r1', [message({ rev: 8, payload: { type: 'text', text: 'edited' } })]);
+    get().setPage('r1', { messages: [message({ rev: 1 })], hasMore: false }, 'replace');
+    expect(get().messages.r1!.items[0]!.payload).toEqual({ type: 'text', text: 'edited' });
+  });
+
+  it('drops old cached messages that may not join up with the latest window', () => {
+    get().upsertMessages('r1', [message({ id: 'stale', seq: 2, rev: 2 })]);
+    get().setPage('r1', { messages: [message({ id: 'latest', seq: 500, rev: 500 })], hasMore: true }, 'replace');
+    expect(get().messages.r1!.items.map((m) => m.id)).toEqual(['latest']);
+  });
+
   it('applies receipts to the right member', () => {
     const member = (userId: string) => ({ userId, displayName: 'x', handle: 'x', avatarUrl: null, role: 'member' as const, lastDeliveredSeq: 0, lastReadSeq: 0 });
     get().upsertRoom({ id: 'r1', members: [member('a'), member('b')] } as unknown as RoomDTO);

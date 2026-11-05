@@ -213,6 +213,32 @@ describe('reconnection', () => {
   });
 });
 
+describe('out-of-order writes from another node', () => {
+  it('a row landing below one already read still reaches this node', async () => {
+    const { BlockUpdate } = await import('../src/models/blocks.js');
+    const block = await makeBlock(owner, room.id, 'checklist', { title: 'Gap', items: [] });
+    const first = await join(await socketFor(h, owner.token), block.id);
+
+    const withItem = (text: string) => {
+      const copy = new Y.Doc();
+      Y.applyUpdate(copy, Y.encodeStateAsUpdate(first.doc));
+      const before = Y.encodeStateVector(copy);
+      checklistOps.add(copy, text);
+      return Buffer.from(Y.encodeStateAsUpdate(copy, before));
+    };
+    const row = (seq: number, update: Buffer) => ({ blockId: block.id, seq, update, clientUpdateId: randomUUID(), actor: { id: 'x', name: 'X' } });
+
+    // Another node took seq 1 and hasn't written it yet. This node reads seq 2 first.
+    await BlockUpdate.create(row(2, withItem('higher')));
+    const early = await join(await socketFor(h, alice.token), block.id);
+    expect(checklist.summarize(early.doc).items.map((i) => i.text)).toEqual(['higher']);
+
+    await BlockUpdate.create(row(1, withItem('lower')));
+    const later = await join(await socketFor(h, alice.token), block.id);
+    expect(checklist.summarize(later.doc).items.map((i) => i.text).sort()).toEqual(['higher', 'lower']);
+  });
+});
+
 describe('compaction', () => {
   it('folds the log into the snapshot and loses nothing', async () => {
     const { compactBlock, clearBlockCache } = await import('../src/modules/blocks/service.js');
@@ -264,6 +290,24 @@ describe('compaction', () => {
     clearBlockCache();
     const fresh = await join(await socketFor(h, alice.token), block.id);
     expect(checklist.summarize(fresh.doc).items).toHaveLength(2);
+  });
+
+  it('records every discrete change, and collapses only a burst of typing', async () => {
+    const block = await makeBlock(owner, room.id, 'checklist', { title: 'Log' });
+    const a = await join(await socketFor(h, owner.token), block.id);
+    checklistOps.add(a.doc, 'one');
+    await a.push();
+    checklistOps.add(a.doc, 'two');
+    await a.push();
+    const id = checklist.summarize(a.doc).items[0]!.id;
+    for (const letter of ['a', 'b', 'c']) {
+      checklistOps.text(a.doc, id)!.insert(0, letter);
+      await a.push();
+    }
+    const res = await h.api().get(`/api/blocks/${block.id}/activity`).set(as(owner));
+    const actions = res.body.activity.map((e: { action: string }) => e.action);
+    expect(actions.filter((x: string) => x === 'added')).toHaveLength(2);
+    expect(actions.filter((x: string) => x === 'edited')).toHaveLength(1);
   });
 
   it('keeps change history through compaction', async () => {

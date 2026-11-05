@@ -124,8 +124,20 @@ export async function setPolicy(blockId: string, userId: string, edit: 'everyone
 
 interface CachedDoc {
   doc: Y.Doc;
+  /**
+   * Everything up to here is definitely in `doc`. This must never pass a gap: sequence numbers are allocated before
+   * their rows are written, so another node's lower number can land after a higher one has been read.
+   */
   seq: number;
   type: string;
+}
+
+/** Applies updates, moving the watermark only through a run with no gaps. Reapplying is harmless, because Yjs is idempotent. */
+function absorb(entry: CachedDoc, updates: { seq: number; update: Buffer | { buffer: Uint8Array } }[]) {
+  for (const u of updates) {
+    Y.applyUpdate(entry.doc, bytes(u.update));
+    if (u.seq === entry.seq + 1) entry.seq = u.seq;
+  }
 }
 
 /**
@@ -160,8 +172,9 @@ async function fullLoad(blockId: string): Promise<CachedDoc> {
 
     const doc = new Y.Doc();
     Y.applyUpdate(doc, bytes(block.snapshot));
-    updates.forEach((u) => Y.applyUpdate(doc, bytes(u.update)));
-    return { doc, seq: updates.at(-1)?.seq ?? block.snapshotSeq, type: block.type };
+    const entry: CachedDoc = { doc, seq: block.snapshotSeq, type: block.type };
+    absorb(entry, updates);
+    return entry;
   }
   throw new AppError(503, 'INTERNAL', 'Block is busy, try again');
 }
@@ -171,11 +184,7 @@ async function currentDoc(blockId: string): Promise<CachedDoc> {
   if (cached) {
     const block = await Block.findById(blockId).select('snapshotSeq').lean();
     if (block && block.snapshotSeq <= cached.seq) {
-      const updates = await BlockUpdate.find({ blockId, seq: { $gt: cached.seq } }).sort({ seq: 1 }).lean();
-      updates.forEach((u) => {
-        Y.applyUpdate(cached.doc, bytes(u.update));
-        cached.seq = u.seq;
-      });
+      absorb(cached, await BlockUpdate.find({ blockId, seq: { $gt: cached.seq } }).sort({ seq: 1 }).lean());
       remember(blockId, cached);
       return cached;
     }
@@ -231,17 +240,28 @@ export async function joinBlock(blockId: string, principal: BlockPrincipal, stat
   });
 }
 
+/** Keystrokes arrive as many updates, but they're one edit to a reader. Everything else is a separate event. */
+const TYPING_ACTIONS = new Set(['edited', 'updated']);
+const TYPING_WINDOW_MS = 60_000;
+
 async function recordActivity(blockId: string, actorName: string, changes: { action: string; detail: string }[]) {
   for (const change of changes) {
-    // A burst of typing is one edit in the history, not one entry per keystroke.
-    const coalesced = await BlockActivity.findOneAndUpdate(
-      { blockId, actorName, action: change.action, at: { $gt: new Date(Date.now() - 60_000) } },
-      { detail: change.detail, at: new Date() },
-      { sort: { at: -1 } },
-    );
-    if (!coalesced || change.action !== 'edited') {
-      if (!coalesced) await BlockActivity.create({ blockId, actorName, ...change });
+    if (TYPING_ACTIONS.has(change.action)) {
+      const merged = await BlockActivity.findOneAndUpdate(
+        {
+          blockId,
+          actorName,
+          action: change.action,
+          at: { $gt: new Date(Date.now() - TYPING_WINDOW_MS) },
+          // `updated` names a field, so typing in a different field is a different edit.
+          ...(change.action === 'updated' ? { detail: change.detail } : {}),
+        },
+        { detail: change.detail, at: new Date() },
+        { sort: { at: -1 } },
+      );
+      if (merged) continue;
     }
+    await BlockActivity.create({ blockId, actorName, ...change });
   }
 }
 
@@ -318,8 +338,8 @@ export async function applyBlockUpdate(
       return { seq: winner?.seq ?? allocated.seq, roomId: String(block.roomId), duplicate: true };
     }
 
+    // The watermark stays put here. A lower number from another node may still be in flight, so the next read settles it.
     Y.applyUpdate(current.doc, update);
-    current.seq = allocated.seq;
     await recordActivity(blockId, principal.name, def.describe(before, after));
 
     if (allocated.seq - allocated.snapshotSeq >= getEnv().BLOCK_COMPACT_THRESHOLD) scheduleCompaction(blockId);

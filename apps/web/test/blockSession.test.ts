@@ -10,6 +10,7 @@ class FakeSocket {
   connected = true;
   server = new Y.Doc();
   refuse = false;
+  limited = 0;
   received = 0;
   private handlers = new Map<string, Set<Handler>>();
 
@@ -39,6 +40,10 @@ class FakeSocket {
     }
     if (event === 'block:update') {
       this.received += 1;
+      if (this.limited > 0) {
+        this.limited -= 1;
+        return cb({ ok: false, code: 'RATE_LIMITED', message: 'Slow down' });
+      }
       if (this.refuse) return cb({ ok: false, code: 'BLOCK_UPDATE_REJECTED', message: 'You can only sign yourself up' });
       // The same check the real server makes: an update with a gap beneath it can't be accepted.
       const copy = new Y.Doc();
@@ -124,6 +129,16 @@ describe('BlockSession', () => {
     await flush();
     expect(session.error).toBe('You can only sign yourself up');
     expect(texts(session.doc)).toEqual(['Tickets']);
+  });
+
+  it('holds an edit through a rate limit instead of losing it', async () => {
+    socket.limited = 1;
+    checklistOps.add(session.doc, 'Worth keeping');
+    await flush();
+    expect(texts(session.doc)).toContain('Worth keeping');
+    expect(session.error).toBeNull();
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(texts(socket.server)).toContain('Worth keeping');
   });
 
   it('can keep working after a refusal', async () => {

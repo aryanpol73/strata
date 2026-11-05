@@ -88,6 +88,10 @@ For each update: authorize, decode, apply to a *copy* of the doc, run the block 
 then append to `BlockUpdate`, acknowledge, and broadcast. Validation is what makes rules like "you may only sign
 *yourself* up" real rather than cosmetic. A pure relay can't enforce them, because a CRDT update is otherwise opaque.
 
+Sequence numbers are allocated before their rows are written, so a lower number from another node can land after a
+higher one. Each cached doc therefore tracks a contiguous watermark that never passes a gap, and reapplies anything above
+it, which Yjs makes harmless.
+
 A compaction pass merges updates into `Block.snapshot` when the log passes a threshold. It uses compare-and-set on
 `snapshotSeq`, so readers either see the old snapshot with the full log or the new one with the remainder.
 

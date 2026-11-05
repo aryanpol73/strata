@@ -52,7 +52,7 @@ and they recover through their refresh cookie.
 
 ### More than one API node
 
-The client tries WebSocket first and can fall back to long-polling. Polling needs **sticky sessions**, so either enable
+Tested with two real server processes sharing MongoDB and Redis. The client tries WebSocket first and can fall back to long-polling. Polling needs **sticky sessions**, so either enable
 them on your load balancer, or set the client to `transports: ['websocket']` in `apps/web/src/realtime/socket.ts`.
 
 ## Serving the web client

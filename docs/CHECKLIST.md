@@ -2,22 +2,24 @@
 
 Last updated 2026-11-05. The rule here is that nothing is marked complete without evidence.
 
-- **Automated** means covered by a passing test.
-- **Browser** means exercised by hand in a real browser against the running stack.
+- **Automated** means covered by a passing server, client or shared test.
+- **Browser** means covered by an automated Playwright test, run against the production build with its real CSP.
 
 ## Test results
 
 | Suite | Result | What it runs against |
 | --- | --- | --- |
 | `packages/shared` | 9 of 9 | Yjs documents |
-| `apps/server` | 208 of 208 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients |
-| `apps/web` | 16 of 16 | Store and block session logic |
-| **Total** | **233 of 233** | |
+| `apps/server` | 221 of 221 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients, and a second real server process |
+| `apps/web` | 20 of 20 | Store and block session logic |
+| `apps/e2e` | 53 of 53 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
+| **Total** | **303 of 303** | |
 
 Type-checking passes in all packages, with `strict` and `noUncheckedIndexedAccess`. Production builds pass. The largest
-web chunk is 273 KB (88 KB gzipped).
+web chunk is 273 KB (88 KB gzipped). Accessibility audits (axe, WCAG 2.1 AA) pass on the main screens in both themes.
 
-**There are no automated browser tests yet.** The browser pass below was manual, and won't catch regressions by itself.
+The browser suite also passed twice over in one run, and the offline tests six times over, because some of the bugs
+below only appeared intermittently.
 
 ## Completed
 
@@ -50,10 +52,15 @@ web chunk is 273 KB (88 KB gzipped).
 | Digests, quiet hours, recipient rules | Automated |
 | Blocking acknowledgement, reminders, expiry | Automated, Browser |
 | Retry, leases, failure states, BullMQ scheduling on real Redis | Automated |
-| Rate limits on real Redis | Automated |
+| Rate limits on real Redis, and a budget on socket writes | Automated |
+| Multiple API nodes: fan-out, revocation, presence, CRDT convergence | Automated, against two real processes |
+| Offline: outbox, resync, cold start from the service worker | Browser |
+| Local data cleared on sign-out | Browser |
+| Mobile: separate screens, action sheet, Canvas view, no side scroll | Browser, emulated Pixel 7 |
+| Accessibility: WCAG AA contrast and structure, both themes | Browser, axe |
 | Production start-up checks, security headers, secure cookies | Smoke test of the built server |
 
-All seven priority interactions from the brief were exercised in a browser: creating a branch, switching between parent
+All seven priority interactions from the brief are covered by automated browser tests: creating a branch, switching between parent
 and branch, merging, editing live blocks with a second client, moving messages to the Canvas, navigating both ways
 between Canvas and source, and selecting a posture.
 
@@ -64,12 +71,9 @@ between Canvas and source, and selecting a posture.
 | **Cloudinary** | Implemented behind the provider interface | **Never run.** No credentials. Needs a live test |
 | **Web Push** | Server, service worker and opt-in written | **Never delivered a real push.** Delivery logic is tested with a stand-in sender |
 | **Docker image** | Dockerfile and compose written | **Never built.** Docker wasn't available |
-| **PWA and offline shell** | Manifest, icons and service worker are served | Install and offline start not tried in a browser |
-| **Offline outbox** | Written, and reconnect resync happened during testing | Not tested by actually sending while offline |
-| **Multi-node** | Redis adapter used in tests | Only one node at a time. Two real nodes never run together |
-| **Mobile** | List, conversation and guest views checked at 375px | Canvas on mobile not visually checked. Touch drag untested. No real device |
-| **Dark theme** | Used for the sign-in and guest pages | Main app not fully reviewed in dark |
-| **Accessibility** | Dialog focus traps, labels, keyboard Canvas reorder | No screen reader or contrast audit |
+| **PWA install** | Manifest, icons and offline start are tested | The install prompt itself hasn't been tried |
+| **Mobile** | Emulated phone covered | No real device. Touch dragging on the Canvas untested. Keyboard and mouse dragging are tested |
+| **Accessibility** | Automated audit, keyboard Canvas reorder, dialog focus traps | Automated tools catch only part of the problem. No screen reader testing yet |
 
 ## Pending
 
@@ -77,7 +81,6 @@ between Canvas and source, and selecting a posture.
 | --- | --- |
 | Gemini ecosystem research | **Not received.** Requirements come from the brief alone |
 | UI references | **Not received.** Tokens are all in `apps/web/src/styles/index.css`, ready for them |
-| Automated browser tests | Recommended next. Playwright, covering the seven priority flows |
 | Email verification and password reset | Needs an email provider |
 | Two-factor authentication | |
 | Abuse reporting and moderation | |
@@ -93,13 +96,15 @@ not built. `docs/02-architecture.md` lists the extension point for each.
 
 | Issue | Impact |
 | --- | --- |
+| A refresh response lost in transit leaves the browser with a superseded token, which reuse detection ends after 10 seconds | Safe failure, but that person has to sign in again. Could matter on poor mobile networks |
+| Block rules are checked against each node's latest view, so two nodes can both accept near-simultaneous edits | Only affects rules that compare edits, such as limits on item count. Permissions are unaffected |
 | Whoever merges a branch sees their own resolution card as unread until they open the room | Cosmetic |
-| Yjs updates over the socket have a size limit but no rate limit | An authorized member could flood a block |
 | Unread counts run one query per room with unread messages | Fine now, needs a counter at scale |
 | Search uses MongoDB `$text`, which is weak on languages without word spacing | Replace with Atlas Search before it matters |
 | Canvas shows a stale excerpt if a source message is later edited | By design for now, as the Canvas keeps what was extracted |
 | A read-only merged transcript isn't listed in the sidebar | Reached from the resolution card only |
 | The bundled `pnpm infra` downloads a large MongoDB binary the first time | About 780 MB, then cached |
+| One browser test failed once with `Unexpected end of JSON input` in a test helper | **Unexplained.** It didn't recur in the 150+ test runs since. Watch for it |
 
 ## Bugs found by testing, now fixed
 
@@ -108,6 +113,16 @@ Kept here because each one shaped a test that now guards it.
 | Bug | Found by | Severity |
 | --- | --- | --- |
 | Guest could learn a nested branch's id from a sanitized message's sender field | Adversarial guest suite | **Security** |
+| A node's block cache could permanently miss an edit made through another node | Two-node test | **High** |
+| A message sent while reconnecting was deleted from the outbox | Browser, offline cold start | **High** |
+| Messages arriving while a page was loading vanished from the screen | Browser, repeated runs | **High** |
+| A message could be lost if the tab closed just after it showed as sending | Browser, repeated runs | Medium |
+| An app started offline didn't reliably connect when the network returned | Browser | Medium |
+| The outbox could stall if HTTP failed while the socket stayed up | Writing the offline tests | Medium |
+| Going offline took up to a minute to notice | Browser | Medium |
+| Change history dropped entries made within a minute of each other | Investigating a browser failure | Medium |
+| Muted text and tinted labels failed WCAG AA contrast in both themes | axe audit | Medium |
+| A clock stepping backwards drained the socket budget | Client test | Low |
 | Two simultaneous refreshes cleared the winner's cookie, signing the user out | Reloading in the browser | **High** |
 | After a refused block edit, every later edit from that client failed | Client test | **High** |
 | Direct room creation race returned a room without its members | Concurrency test | Medium |

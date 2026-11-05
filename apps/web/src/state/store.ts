@@ -113,7 +113,12 @@ export const useStore = create<State>((set) => ({
   setPage: (roomId, page, mode) =>
     set((s) => {
       const current = s.messages[roomId] ?? EMPTY;
-      const items = mode === 'replace' ? mergeMessages([], page.messages) : mergeMessages(current.items, page.messages);
+      // A replace jumps to the latest window, so older cached messages go, because they may not join up with it. But
+      // anything newer than this page arrived while the request was in flight, and is the one thing it can't know about.
+      const newest = page.messages.at(-1)?.seq ?? 0;
+      const inPage = new Set(page.messages.map((m) => m.id));
+      const kept = mode === 'replace' ? current.items.filter((m) => m.seq > newest || inPage.has(m.id)) : current.items;
+      const items = mergeMessages(kept, page.messages);
       const rev = items.reduce((max, m) => Math.max(max, m.rev), current.rev);
       return { messages: { ...s.messages, [roomId]: { items, hasMore: page.hasMore, loaded: true, rev } } };
     }),

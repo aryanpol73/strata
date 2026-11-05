@@ -63,6 +63,7 @@ The generated credentials are written to `.data/dev-accounts.json`, which git ig
 | `pnpm dev` | API on port 4000 and web on port 5173, with reload |
 | `pnpm infra` | Local MongoDB and Redis without Docker |
 | `pnpm test` | All tests. Server tests use a real MongoDB and a real Redis |
+| `pnpm test:e2e` | Browser tests against the production build. Needs MongoDB and Redis running |
 | `pnpm typecheck` | Type-check every package |
 | `pnpm build` | Production builds |
 
@@ -71,6 +72,7 @@ The generated credentials are written to `.data/dev-accounts.json`, which git ig
 ```
 apps/server      Express API, Socket.IO gateway, BullMQ jobs
 apps/web         React client, PWA
+apps/e2e         Playwright browser tests, including accessibility audits
 packages/shared  zod schemas, socket contracts, block definitions
 docs/            Architecture, security, roadmap and status
 ```

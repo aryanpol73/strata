@@ -12,6 +12,10 @@ const connectListeners = new Set<() => void>();
 
 export const getSocket = () => socket;
 
+// A dead connection can take most of a minute to time out. The browser knows sooner, so act on what it says.
+const goOffline = () => socket?.disconnect();
+const goOnline = () => socket?.connect();
+
 /** Live blocks use this to rejoin and reconcile after a dropped connection. */
 export function onConnected(fn: () => void) {
   connectListeners.add(fn);
@@ -36,6 +40,8 @@ export function connectSocket() {
     reconnectionDelayMax: 8000,
   });
   socket = s;
+  window.addEventListener('offline', goOffline);
+  window.addEventListener('online', goOnline);
 
   s.on('connect', () => {
     useStore.setState({ connection: 'online' });
@@ -110,6 +116,8 @@ function previewOf(message: { payload: { type: string } & Record<string, unknown
 }
 
 export function disconnectSocket() {
+  window.removeEventListener('offline', goOffline);
+  window.removeEventListener('online', goOnline);
   socket?.removeAllListeners();
   socket?.disconnect();
   socket = null;

@@ -6,6 +6,7 @@ import { getEnv } from '../config/env.js';
 import { AppError, unauthenticated } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { connectRedis } from '../lib/redis.js';
+import { TokenBucket } from '../lib/tokenBucket.js';
 import { GUEST_AUDIENCE, USER_AUDIENCE, peekAudience } from '../lib/tokens.js';
 import { RoomMember } from '../models/rooms.js';
 import { authenticateUser, type AuthedUser, type GuestContext } from '../modules/auth/middleware.js';
@@ -19,10 +20,21 @@ interface SocketData {
   user?: AuthedUser;
   guest?: GuestContext;
   lastTypingAt?: number;
+  budget?: TokenBucket;
 }
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
 const TYPING_INTERVAL_MS = 800;
+/** The client sends at most about eight updates a second, so this only ever refuses something abnormal. */
+const SOCKET_BURST = 60;
+const SOCKET_REFILL_PER_SECOND = 20;
+
+/** Throws when this connection has used up its budget. Every write that reaches the database passes through here. */
+function spend(socket: AppSocket) {
+  if (!getEnv().RATE_LIMITS_ENABLED) return;
+  socket.data.budget ??= new TokenBucket(SOCKET_BURST, SOCKET_REFILL_PER_SECOND);
+  if (!socket.data.budget.take()) throw new AppError(429, 'RATE_LIMITED', 'Slow down');
+}
 
 const asBytes = (value: unknown): Uint8Array | null => {
   if (value instanceof Uint8Array) return value;
@@ -63,6 +75,11 @@ function attachMemberEvents(io: Server, socket: AppSocket, user: AuthedUser, roo
   socket.on('receipt:delivered', ({ roomId, seq }) => {
     // Channel membership is maintained by the hub as people join and leave, so it reflects current access.
     if (!socket.rooms.has(channels.room(String(roomId))) || !Number.isInteger(seq)) return;
+    try {
+      spend(socket);
+    } catch {
+      return; // A receipt is only a watermark, and the next one covers this one.
+    }
     markDelivered(roomId, user.id, seq).catch((err) => logger.warn({ err }, 'receipt failed'));
   });
 
@@ -94,6 +111,7 @@ function attachSharedEvents(socket: AppSocket) {
   socket.on('block:join', async ({ blockId, stateVector }, ack) => {
     if (typeof ack !== 'function') return;
     try {
+      spend(socket);
       const vector = stateVector ? (asBytes(stateVector) ?? undefined) : undefined;
       const { roomId: _roomId, ...result } = await joinBlock(String(blockId), principalOf(socket), vector);
       ack({ ok: true, data: result });
@@ -105,6 +123,7 @@ function attachSharedEvents(socket: AppSocket) {
   socket.on('block:update', async ({ blockId, update, clientUpdateId }, ack) => {
     if (typeof ack !== 'function') return;
     try {
+      spend(socket);
       const bytes = asBytes(update);
       if (!bytes || bytes.byteLength > LIMITS.blockUpdateBytes || typeof clientUpdateId !== 'string') {
         throw new AppError(422, 'BLOCK_UPDATE_REJECTED', 'Invalid update');
