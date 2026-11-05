@@ -52,7 +52,13 @@ let cached: Env | undefined;
 
 export function getEnv(): Env {
   if (cached) return cached;
-  const parsed = schema.safeParse(process.env);
+  // Render announces the service's address at runtime, so it can't be written into the Blueprint beforehand.
+  const host = process.env.RENDER_EXTERNAL_URL;
+  const parsed = schema.safeParse({
+    ...process.env,
+    APP_URL: process.env.APP_URL ?? host,
+    CORS_ORIGINS: process.env.CORS_ORIGINS ?? host,
+  });
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`).join('\n');
     throw new Error(`Invalid environment:\n${lines}`);

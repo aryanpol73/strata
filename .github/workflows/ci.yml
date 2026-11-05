@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mongo:
+        image: mongo:8
+        ports: ['27017:27017']
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    env:
+      TEST_REDIS_URL: redis://127.0.0.1:6379
+    steps:
+      - uses: actions/checkout@v4
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm test
+      - run: pnpm --filter @strata/e2e exec playwright install --with-deps chromium
+      - run: pnpm --filter @strata/e2e e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-results
+          path: .tools/e2e-results
+          retention-days: 7
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t strata .

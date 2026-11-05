@@ -10,10 +10,10 @@ Last updated 2026-11-05. The rule here is that nothing is marked complete withou
 | Suite | Result | What it runs against |
 | --- | --- | --- |
 | `packages/shared` | 9 of 9 | Yjs documents |
-| `apps/server` | 222 of 222 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients, and a second real server process |
+| `apps/server` | 224 of 224 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients, and a second real server process |
 | `apps/web` | 20 of 20 | Store and block session logic |
 | `apps/e2e` | 59 of 59 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
-| **Total** | **310 of 310** | |
+| **Total** | **312 of 312** | |
 
 Type-checking passes in all packages, with `strict` and `noUncheckedIndexedAccess`. Production builds pass. The largest
 web chunk is 273 KB (88 KB gzipped). Accessibility audits (axe, WCAG 2.1 AA) pass on the main screens in both the Deep and Day themes.
@@ -78,7 +78,9 @@ between Canvas and source, and selecting a posture.
 | --- | --- | --- |
 | **Cloudinary** | Implemented behind the provider interface | **Never run.** No credentials. Needs a live test |
 | **Web Push** | Server, service worker and opt-in written | **Never delivered a real push.** Delivery logic is tested with a stand-in sender |
-| **Docker image** | Dockerfile and compose written | **Never built.** Docker wasn't available |
+| **Docker image** | Dockerfile and compose written, with a CI build job | **Never built.** Docker isn't available here, and CI hasn't run yet |
+| **Free staging on Render** | `render.yaml` written. Same build commands and production settings booted locally, 123 MB at idle | **Never deployed.** Needs Atlas, Cloudinary and a Render account |
+| **CI** | GitHub Actions workflow written | **Never run.** It runs once this reaches GitHub |
 | **PWA install** | Manifest, icons and offline start are tested | The install prompt itself hasn't been tried |
 | **Mobile** | Emulated phone covered | No real device. Touch dragging on the Canvas untested. Keyboard and mouse dragging are tested |
 | **Accessibility** | Automated audit, keyboard Canvas reorder, dialog focus traps | Automated tools catch only part of the problem. No screen reader testing yet |
@@ -88,7 +90,6 @@ between Canvas and source, and selecting a posture.
 | Item | Notes |
 | --- | --- |
 | Gemini ecosystem research | **Not received.** Requirements come from the brief alone |
-| UI references | **Not received.** Tokens are all in `apps/web/src/styles/index.css`, ready for them |
 | Email verification and password reset | Needs an email provider |
 | Two-factor authentication | |
 | Abuse reporting and moderation | |
