@@ -1,0 +1,372 @@
+import { Check, Copy, GitBranch, Link2, Lock, ShieldAlert, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { payloadExcerpt, type GuestLinkCreated, type GuestLinkDTO, type MessageDTO, type RoomDTO } from '@strata/shared';
+import { api } from '../../api/client';
+import { Avatar, Button, Dialog, Field, Input, Pill, Spinner, Textarea, cx, shortTime } from '../../components/ui';
+import { loadRoom } from '../../state/actions';
+import { toast, toastError, useStore } from '../../state/store';
+
+function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5 py-1">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-4 accent-[var(--vein)]" />
+      <span>
+        <span className="block text-sm">{label}</span>
+        {hint && <span className="block text-xs text-ink-2">{hint}</span>}
+      </span>
+    </label>
+  );
+}
+
+export function CreateBranchDialog({ message, room, onClose, onCreated }: { message: MessageDTO; room: RoomDTO; onClose: () => void; onCreated: (roomId: string) => void }) {
+  const me = useStore((s) => s.me);
+  const others = room.members.filter((m) => m.userId !== me?.id);
+  const [title, setTitle] = useState('');
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [isPrivate, setPrivate] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const toggle = (id: string) =>
+    setChosen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const create = async () => {
+    setBusy(true);
+    try {
+      const res = await api<{ room: RoomDTO }>(`/messages/${message.id}/branches`, {
+        method: 'POST',
+        body: { title: title.trim(), participantIds: [...chosen], visibility: isPrivate ? 'private' : 'listed' },
+      });
+      useStore.getState().upsertRoom(res.room);
+      onCreated(res.room.id);
+    } catch (err) {
+      toastError(err);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog
+      title="Branch from this message"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="vein" disabled={!title.trim() || busy} onClick={create}>
+            <GitBranch size={15} /> Start branch
+          </Button>
+        </>
+      }
+    >
+      <blockquote className="mb-3 border-l-2 border-vein pl-3 text-sm text-ink-2">
+        <span className="font-medium text-ink">{message.sender.name}</span> {payloadExcerpt(message.payload, 160)}
+      </blockquote>
+      <div className="space-y-3">
+        <Field label="What's this branch about?">
+          <Input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="Launch date" />
+        </Field>
+        <fieldset>
+          <legend className="mb-1 text-[13px] font-medium text-ink-2">Who should be in it?</legend>
+          {others.length === 0 && <p className="text-sm text-ink-3">Nobody else is in this conversation yet.</p>}
+          <ul className="scroll-thin max-h-44 overflow-y-auto">
+            {others.map((m) => (
+              <li key={m.userId}>
+                <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-sunken">
+                  <input type="checkbox" checked={chosen.has(m.userId)} onChange={() => toggle(m.userId)} className="size-4 accent-[var(--vein)]" />
+                  <Avatar name={m.displayName} url={m.avatarUrl} size={26} />
+                  <span className="text-sm">{m.displayName}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </fieldset>
+        <Toggle
+          checked={isPrivate}
+          onChange={setPrivate}
+          label="Private branch"
+          hint={isPrivate ? 'Others in the conversation won’t know this exists until you merge a resolution.' : 'Others can see the title and status, but not the messages.'}
+        />
+      </div>
+    </Dialog>
+  );
+}
+
+export function ResolveDialog({ room, onClose }: { room: RoomDTO; onClose: () => void }) {
+  const [summary, setSummary] = useState('');
+  const [busy, setBusy] = useState(false);
+  const resolve = async () => {
+    setBusy(true);
+    try {
+      await api(`/branches/${room.id}/resolve`, { method: 'POST', body: { summary: summary.trim() } });
+      await loadRoom(room.id);
+      onClose();
+    } catch (err) {
+      toastError(err);
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog
+      title="Resolve this branch"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" disabled={!summary.trim() || busy} onClick={resolve}>
+            Mark resolved
+          </Button>
+        </>
+      }
+    >
+      <Field label="What was decided?" hint="This becomes the resolution card if you merge. Write it for people who weren't here.">
+        <Textarea rows={5} value={summary} maxLength={4000} onChange={(e) => setSummary(e.target.value)} />
+      </Field>
+      <p className="mt-2 text-xs text-ink-2">The branch closes to new messages. You can reopen it until it's merged.</p>
+    </Dialog>
+  );
+}
+
+export function MergeDialog({ room, onClose }: { room: RoomDTO; onClose: () => void }) {
+  const [openTranscript, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const parent = useStore((s) => (room.parentRoomId ? s.rooms[room.parentRoomId] : undefined));
+
+  const merge = async () => {
+    setBusy(true);
+    try {
+      await api(`/branches/${room.id}/merge`, {
+        method: 'POST',
+        body: { transcriptPolicy: openTranscript ? 'parent_members' : 'participants' },
+      });
+      await loadRoom(room.id);
+      toast('Resolution posted to the conversation');
+      onClose();
+    } catch (err) {
+      toastError(err);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog
+      title="Merge resolution"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="vein" disabled={busy} onClick={merge}>
+            Post to {parent?.name ?? 'conversation'}
+          </Button>
+        </>
+      }
+    >
+      <p className="mb-2 text-sm text-ink-2">Everyone in the original conversation will see this card.</p>
+      <div className="rounded-xl border border-copper/40 bg-copper-soft/50 p-3.5">
+        <div className="layer-rule mb-2 w-28" />
+        <h4 className="font-serif text-lg">{room.branch?.title}</h4>
+        <p className="mt-1 whitespace-pre-wrap font-serif leading-relaxed">{room.branch?.resolution?.summary}</p>
+      </div>
+      <div className="mt-3">
+        <Toggle
+          checked={openTranscript}
+          onChange={setOpen}
+          label="Also share the transcript, read-only"
+          hint={openTranscript ? 'Everyone in the parent conversation will be able to read every message in this branch.' : 'Only the summary is shared. The discussion stays with its participants.'}
+        />
+      </div>
+      <p className="mt-2 text-xs text-ink-3">A merge can't be undone.</p>
+    </Dialog>
+  );
+}
+
+const EXPIRY = [
+  { label: '1 day', hours: 24 },
+  { label: '7 days', hours: 168 },
+  { label: '30 days', hours: 720 },
+];
+
+export function GuestDialog({ room, onClose }: { room: RoomDTO; onClose: () => void }) {
+  const [links, setLinks] = useState<GuestLinkDTO[] | null>(null);
+  const [label, setLabel] = useState('');
+  const [pin, setPin] = useState('');
+  const [hours, setHours] = useState(168);
+  const [write, setWrite] = useState(true);
+  const [blocks, setBlocks] = useState(false);
+  const [canvas, setCanvas] = useState(false);
+  const [created, setCreated] = useState<GuestLinkCreated | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const load = () =>
+    api<{ links: GuestLinkDTO[] }>(`/branches/${room.id}/guest-links`)
+      .then((r) => setLinks(r.links))
+      .catch(toastError);
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.id]);
+
+  const create = async () => {
+    try {
+      const { link } = await api<{ link: GuestLinkCreated }>(`/branches/${room.id}/guest-links`, {
+        method: 'POST',
+        body: { label: label.trim(), pin: pin || undefined, expiresInHours: hours, scope: { write, blocks, canvas } },
+      });
+      setCreated(link);
+      setLabel('');
+      setPin('');
+      await load();
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const revoke = async (id: string) => {
+    try {
+      await api(`/guest-links/${id}`, { method: 'DELETE' });
+      await load();
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  // The token sits in the fragment, which browsers don't send to servers or put in Referer headers.
+  const url = created ? `${location.origin}/g#t=${created.token}` : '';
+
+  return (
+    <Dialog title="Invite a guest" onClose={onClose} wide>
+      <div className="mb-3 flex gap-2 rounded-lg bg-copper-soft/60 p-2.5 text-sm text-ink-2">
+        <ShieldAlert size={16} className="mt-0.5 shrink-0 text-copper" />
+        <p>Guests can read everything in this branch, including messages from before they joined. They can't see the original conversation or anything else.</p>
+      </div>
+
+      {created ? (
+        <div className="rounded-xl border border-vein/40 bg-vein-soft/50 p-3">
+          <p className="mb-1.5 text-sm font-medium">Copy this link now. It won't be shown again.</p>
+          <div className="flex gap-2">
+            <Input readOnly value={url} aria-label="Guest link" className="font-mono text-xs" onFocus={(e) => e.target.select()} />
+            <Button
+              variant="vein"
+              onClick={async () => {
+                await navigator.clipboard.writeText(url);
+                setCopied(true);
+              }}
+            >
+              {copied ? <Check size={15} /> : <Copy size={15} />}
+              {copied ? 'Copied' : 'Copy'}
+            </Button>
+          </div>
+          <Button variant="ghost" className="mt-2 h-8" onClick={() => setCreated(null)}>
+            Make another
+          </Button>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Who is this for?">
+            <Input value={label} maxLength={80} onChange={(e) => setLabel(e.target.value)} placeholder="Vendor contact" />
+          </Field>
+          <Field label="PIN (optional)" hint="4 to 8 digits. Share it separately from the link.">
+            <Input value={pin} inputMode="numeric" maxLength={8} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
+          </Field>
+          <div>
+            <p className="mb-1 text-[13px] font-medium text-ink-2">Expires after</p>
+            <div className="flex gap-1.5">
+              {EXPIRY.map((e) => (
+                <button
+                  key={e.hours}
+                  type="button"
+                  aria-pressed={hours === e.hours}
+                  onClick={() => setHours(e.hours)}
+                  className={cx('rounded-lg border px-2.5 py-1.5 text-sm transition', hours === e.hours ? 'border-vein bg-vein-soft' : 'border-line hover:border-line-strong')}
+                >
+                  {e.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-0.5 text-[13px] font-medium text-ink-2">They can</p>
+            <Toggle checked={write} onChange={setWrite} label="Send messages" />
+            <Toggle checked={blocks} onChange={setBlocks} label="Use shared blocks" />
+            <Toggle checked={canvas} onChange={setCanvas} label="See the Canvas" />
+          </div>
+          <div className="sm:col-span-2">
+            <Button variant="primary" disabled={!label.trim() || (pin.length > 0 && pin.length < 4)} onClick={create}>
+              <Link2 size={15} /> Create link
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <h3 className="mt-5 mb-1.5 text-[13px] font-medium text-ink-2">Links</h3>
+      {!links ? (
+        <Spinner />
+      ) : links.length === 0 ? (
+        <p className="text-sm text-ink-3">None yet.</p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {links.map((l) => {
+            const expired = new Date(l.expiresAt) < new Date();
+            const live = !l.revokedAt && !expired;
+            return (
+              <li key={l.id} className="flex items-center gap-2 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                    {l.label} {l.hasPin && <Lock size={12} className="text-ink-3" aria-label="PIN protected" />}
+                  </p>
+                  <p className="text-xs text-ink-2">
+                    {l.activeSessions} active · {live ? `until ${shortTime(l.expiresAt)}` : ''}
+                  </p>
+                </div>
+                {l.revokedAt ? <Pill tone="plain">Revoked</Pill> : expired ? <Pill tone="plain">Expired</Pill> : null}
+                {live && (
+                  <Button className="h-8 hover:border-oxide hover:text-oxide" onClick={() => revoke(l.id)}>
+                    <Trash2 size={14} /> Revoke
+                  </Button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Dialog>
+  );
+}
+
+export function AddParticipantsDialog({ room, parent, onClose }: { room: RoomDTO; parent: RoomDTO | undefined; onClose: () => void }) {
+  const inBranch = new Set(room.members.map((m) => m.userId));
+  const candidates = (parent?.members ?? []).filter((m) => !inBranch.has(m.userId));
+  const add = async (userId: string) => {
+    try {
+      await api(`/branches/${room.id}/participants`, { method: 'POST', body: { userIds: [userId] } });
+      await loadRoom(room.id);
+      onClose();
+    } catch (err) {
+      toastError(err);
+    }
+  };
+  return (
+    <Dialog title="Add to branch" onClose={onClose}>
+      {candidates.length === 0 && <p className="text-sm text-ink-2">Everyone from the original conversation is already here.</p>}
+      <ul>
+        {candidates.map((m) => (
+          <li key={m.userId}>
+            <button type="button" onClick={() => add(m.userId)} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-2 text-left transition hover:bg-sunken">
+              <Avatar name={m.displayName} url={m.avatarUrl} size={28} /> <span className="text-sm">{m.displayName}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Dialog>
+  );
+}

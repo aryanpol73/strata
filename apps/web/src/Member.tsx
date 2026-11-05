@@ -1,0 +1,53 @@
+import { Suspense, lazy, useEffect } from 'react';
+import { Navigate, Route, Routes } from 'react-router';
+import { Spinner } from './components/ui';
+import { AuthPage } from './features/auth/AuthPage';
+import { rejoinAll } from './features/blocks/blockSession';
+import { AppShell, HomeEmpty, Wordmark } from './features/shell/AppShell';
+import { onConnected } from './realtime/socket';
+import { bootstrap } from './state/actions';
+import { useStore } from './state/store';
+
+const RoomPage = lazy(() => import('./features/chat/RoomPage').then((m) => ({ default: m.RoomPage })));
+const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+
+const Pane = ({ children }: { children: React.ReactNode }) => (
+  <Suspense
+    fallback={
+      <div className="flex h-full items-center justify-center">
+        <Spinner />
+      </div>
+    }
+  >
+    {children}
+  </Suspense>
+);
+
+export function Member() {
+  const status = useStore((s) => s.authStatus);
+
+  useEffect(() => {
+    void bootstrap();
+    return onConnected(rejoinAll) as () => void;
+  }, []);
+
+  if (status === 'loading') {
+    return (
+      <div className="flex h-dvh flex-col items-center justify-center gap-4">
+        <Wordmark size={26} />
+        <Spinner />
+      </div>
+    );
+  }
+  if (status === 'anon') return <AuthPage />;
+  return (
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<HomeEmpty />} />
+        <Route path="r/:roomId" element={<Pane><RoomPage /></Pane>} />
+        <Route path="settings" element={<Pane><SettingsPage /></Pane>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  );
+}

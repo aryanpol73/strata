@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "strata-web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@strata/web", "dev"], "port": 5173 }
+  ]
+}

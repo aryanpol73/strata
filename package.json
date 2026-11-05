@@ -1,0 +1,21 @@
+{
+  "name": "strata",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "setup": "node scripts/setup-env.mjs",
+    "infra": "pnpm --filter @strata/server infra",
+    "dev": "pnpm -r --parallel --filter @strata/server --filter @strata/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
