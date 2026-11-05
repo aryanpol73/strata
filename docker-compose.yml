@@ -16,6 +16,7 @@ services:
     env_file: .env
     environment:
       ROLE: api
+      MONGODB_ALLOW_PLAINTEXT: 'true'
       MONGODB_URI: mongodb://mongo:27017/strata
       REDIS_URL: redis://redis:6379
       WEB_DIST: /app/web
@@ -28,6 +29,7 @@ services:
     env_file: .env
     environment:
       ROLE: worker
+      MONGODB_ALLOW_PLAINTEXT: 'true'
       MONGODB_URI: mongodb://mongo:27017/strata
       REDIS_URL: redis://redis:6379
 volumes:

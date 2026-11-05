@@ -95,10 +95,11 @@ it, which Yjs makes harmless.
 A compaction pass merges updates into `Block.snapshot` when the log passes a threshold. It uses compare-and-set on
 `snapshotSeq`, so readers either see the old snapshot with the full log or the new one with the remainder.
 
-### ADR-7: Mongo holds delivery state, BullMQ provides the clock
+### ADR-7: Mongo holds delivery state, and a timer in the app provides the clock
 
-Each `Notification` row is a small state machine with `dueAt`. BullMQ runs a repeating sweep that claims due rows with an
-atomic lease. Compared with one delayed job per notification, a Redis flush loses nothing, a deadline is a field update
+Each `Notification` row is a small state machine with `dueAt`. A timer in each worker runs a sweep that claims due rows with an
+atomic lease. The schedule used to live in BullMQ, but a Redis wipe removed it and stopped all delivery until a restart,
+so Redis no longer has any part in the clock. Compared with one delayed job per notification, a Redis flush loses nothing, a deadline is a field update
 rather than a job cancellation, and the state is directly queryable for the sender's delivery status view.
 
 ### ADR-8: Guests are a separate principal on a separate router

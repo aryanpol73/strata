@@ -152,8 +152,8 @@ export function createGateway(httpServer: HttpServer) {
     maxHttpBufferSize: LIMITS.blockUpdateBytes + 4096,
   });
 
-  const pub = connectRedis();
-  const sub = connectRedis();
+  const pub = connectRedis({ background: true });
+  const sub = connectRedis({ background: true });
   if (pub && sub) io.adapter(createAdapter(pub, sub));
 
   io.use(async (socket, next) => {

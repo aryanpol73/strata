@@ -10,17 +10,22 @@ interface LimitOptions {
   windowSeconds: number;
   max: number;
   key?: (req: Request) => string | undefined;
+  /** Refuses requests when counting is impossible. For guessable secrets, where an outage mustn't lift the limit. */
+  strict?: boolean;
 }
 
 const ipKey = (req: Request) => ipKeyGenerator(req.ip ?? 'unknown');
 
 /** Built on first use, because the Redis store needs a live connection and env to be loaded. */
-export function limiter({ name, windowSeconds, max, key }: LimitOptions): RequestHandler {
+export function limiter({ name, windowSeconds, max, key, strict = false }: LimitOptions): RequestHandler {
   let handler: RequestHandler | undefined;
   return (req, res, next) => {
     if (!getEnv().RATE_LIMITS_ENABLED) return next();
     handler ??= build();
-    return handler(req, res, next);
+    return handler(req, res, (err?: unknown) => {
+      if (err && !(err instanceof AppError)) next(new AppError(503, 'INTERNAL', 'This is briefly unavailable. Try again shortly.'));
+      else next(err);
+    });
   };
 
   function build(): RequestHandler {
@@ -32,6 +37,7 @@ export function limiter({ name, windowSeconds, max, key }: LimitOptions): Reques
       legacyHeaders: false,
       // Limiters build on first use because the Redis store needs loaded config, so this check doesn't apply.
       validate: { creationStack: false },
+      passOnStoreError: !strict,
       keyGenerator: (req) => `${name}:${key?.(req) ?? ipKey(req)}`,
       ...(redis
         ? {
@@ -50,10 +56,10 @@ export function limiter({ name, windowSeconds, max, key }: LimitOptions): Reques
 }
 
 export const limits = {
-  login: limiter({ name: 'login', windowSeconds: 900, max: 10 }),
-  register: limiter({ name: 'register', windowSeconds: 3600, max: 10 }),
+  login: limiter({ name: 'login', windowSeconds: 900, max: 10, strict: true }),
+  register: limiter({ name: 'register', windowSeconds: 3600, max: 10, strict: true }),
   refresh: limiter({ name: 'refresh', windowSeconds: 60, max: 30 }),
-  guestRedeem: limiter({ name: 'guest-redeem', windowSeconds: 900, max: 20 }),
+  guestRedeem: limiter({ name: 'guest-redeem', windowSeconds: 900, max: 20, strict: true }),
   guestSend: limiter({ name: 'guest-send', windowSeconds: 60, max: 30, key: (req) => req.guest?.sessionId }),
   send: limiter({ name: 'send', windowSeconds: 60, max: 120, key: (req) => req.user?.id }),
   search: limiter({ name: 'search', windowSeconds: 60, max: 60, key: (req) => req.user?.id }),
