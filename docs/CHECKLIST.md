@@ -10,13 +10,13 @@ Last updated 2026-11-05. The rule here is that nothing is marked complete withou
 | Suite | Result | What it runs against |
 | --- | --- | --- |
 | `packages/shared` | 9 of 9 | Yjs documents |
-| `apps/server` | 224 of 224 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients, and a second real server process |
+| `apps/server` | 228 of 228 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients, and a second real server process |
 | `apps/web` | 20 of 20 | Store and block session logic |
-| `apps/e2e` | 59 of 59 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
-| **Total** | **312 of 312** | |
+| `apps/e2e` | 72 of 72 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
+| **Total** | **329 of 329** | |
 
 Type-checking passes in all packages, with `strict` and `noUncheckedIndexedAccess`. Production builds pass. The largest
-web chunk is 273 KB (88 KB gzipped). Accessibility audits (axe, WCAG 2.1 AA) pass on the main screens in both the Deep and Day themes.
+web chunk is 273 KB (88 KB gzipped). Accessibility audits (axe, WCAG 2.1 AA) pass on the main screens in all four looks: Violet and Emerald, each dark and light, including every Settings section.
 
 The browser suite also passed twice over in one run, and the offline tests six times over, because some of the bugs
 below only appeared intermittently.
@@ -71,6 +71,23 @@ between Canvas and source, and selecting a posture.
 - [x] Message bubbles, floating glass composer, sliding Stream/Canvas switch (Browser)
 - [x] Branches and Attention screens, with Needs You and acknowledgement from the list (Automated, Browser)
 - [x] Buttons respond to the pointer, show progress while busy, and stay still under reduced motion (Browser)
+
+### Themes, logo, photos and Settings
+
+- [x] Violet and Emerald colour themes, each dark, light or matching the device (Browser, audited)
+- [x] App icon choice per person, covering the tab, in-app logo and install manifest (Browser)
+- [x] Appearance choices follow a person to new devices (Browser)
+- [x] Profile photos with crop, public or private, and the old address retired on going private (Browser)
+- [x] Settings in seven sections, including password change, appearing offline, storage and install (Browser for password and appearing offline)
+
+An installed app keeps the icon it was installed with until it's reinstalled, and push notifications always use the
+violet icon. Photos change for other people the next time they load the conversation, not live. Guests never see photos.
+
+### Failure recovery
+
+Simulated against the production build with real processes: Redis wiped, restarted, down while running and down at boot;
+MongoDB down while running and down at boot; the app killed abruptly. Deadlines fired, messages flowed where they could,
+and everything recovered by itself. Graceful `SIGTERM` shutdown isn't covered, because the runs were on Windows.
 
 ## Partially completed
 
@@ -131,6 +148,10 @@ Kept here because each one shaped a test that now guards it.
 | Going offline took up to a minute to notice | Browser | Medium |
 | Change history dropped entries made within a minute of each other | Investigating a browser failure | Medium |
 | Muted text and tinted labels failed WCAG AA contrast in both themes | axe audit | Medium |
+| A Redis wipe or restart stopped all deadlines and digests until the app restarted | Failure simulation | **High** |
+| The app wouldn't start while Redis was down | Failure simulation | **High** |
+| With Redis down, sending failed and sign-in hung for over 20 seconds | Failure simulation | **High** |
+| A failed Socket.IO publish during a Redis outage crashed the process | Failure simulation, after the fix above | **High** |
 | With reduced motion, every press left a ripple element behind in the button | Browser test | Low |
 | Button motion styles overrode `absolute`, so the phone message menu took up its own line | Reviewing screenshots | Low |
 | A clock stepping backwards drained the socket budget | Client test | Low |

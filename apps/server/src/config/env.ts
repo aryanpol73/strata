@@ -8,6 +8,8 @@ const schema = z.object({
   /** `all` runs API and workers together. Split them in production by running one of each. */
   ROLE: z.enum(['all', 'api', 'worker']).default('all'),
   MONGODB_URI: z.string().min(1),
+  // For a database on the same private network, such as the compose file's.
+  MONGODB_ALLOW_PLAINTEXT: boolish.default(false),
   REDIS_URL: z.string().optional(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   MEDIA_SIGNING_SECRET: z.string().min(32, 'MEDIA_SIGNING_SECRET must be at least 32 characters'),
@@ -40,6 +42,9 @@ function productionProblems(env: Env): string[] {
   if (!env.REDIS_URL) problems.push('REDIS_URL is required in production');
   if (!env.APP_URL.startsWith('https://')) problems.push('APP_URL must use https in production');
   if (env.CORS_ORIGINS.includes('*')) problems.push('CORS_ORIGINS may not contain a wildcard');
+  const encrypted = env.MONGODB_URI.startsWith('mongodb+srv://') || /[?&](tls|ssl)=true/.test(env.MONGODB_URI);
+  if (!encrypted && !env.MONGODB_ALLOW_PLAINTEXT) problems.push('MONGODB_URI must use TLS in production');
+  if (!/^mongodb(\+srv)?:\/\/[^/]+\/[^/?]+/.test(env.MONGODB_URI)) problems.push('MONGODB_URI must name a database');
   if (env.JWT_SECRET === env.MEDIA_SIGNING_SECRET) problems.push('JWT_SECRET and MEDIA_SIGNING_SECRET must differ');
   if (/change.?me|example|secret123/i.test(env.JWT_SECRET)) problems.push('JWT_SECRET is a placeholder');
   if (env.MEDIA_PROVIDER === 'cloudinary' && !(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET)) {

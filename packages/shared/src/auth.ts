@@ -27,7 +27,17 @@ export type LoginInput = z.infer<typeof loginInput>;
 export const updateProfileInput = z.object({
   displayName: z.string().trim().min(1).max(LIMITS.displayName).optional(),
   bio: z.string().trim().max(280).optional(),
-  avatarUrl: z.string().url().max(500).nullable().optional(),
+  avatarPrivate: z.boolean().optional(),
+  showOnline: z.boolean().optional(),
+  appearance: z
+    .object({
+      accent: z.enum(['violet', 'emerald']),
+      mode: z.enum(['dark', 'light', 'system']),
+      appIcon: z.enum(['violet', 'emerald']),
+      textSize: z.enum(['small', 'default', 'large']),
+      reduceMotion: z.boolean(),
+    })
+    .optional(),
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileInput>;
 
@@ -38,9 +48,21 @@ export interface UserDTO {
   avatarUrl: string | null;
   bio: string;
 }
+export type Appearance = NonNullable<UpdateProfileInput['appearance']>;
+
 export interface SelfDTO extends UserDTO {
   email: string;
+  avatarPrivate: boolean;
+  showOnline: boolean;
+  /** Null until the person chooses, so a device keeps its own look until then. */
+  appearance: Appearance | null;
 }
+
+export const changePasswordInput = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: registerInput.shape.password,
+});
+export type ChangePasswordInput = z.infer<typeof changePasswordInput>;
 export interface AuthResponse {
   accessToken: string;
   user: SelfDTO;

@@ -30,7 +30,7 @@ export function installPressEffects() {
     'pointerdown',
     (e) => {
       const target = (e.target as Element | null)?.closest?.<HTMLElement>('.st-press');
-      if (!target || (target as HTMLButtonElement).disabled || stillPlease.matches) return;
+      if (!target || (target as HTMLButtonElement).disabled || stillPlease.matches || document.documentElement.dataset.motion) return;
       const box = target.getBoundingClientRect();
       const ripple = document.createElement('span');
       ripple.className = 'st-ripple';

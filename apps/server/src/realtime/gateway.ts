@@ -8,6 +8,7 @@ import { logger } from '../lib/logger.js';
 import { connectRedis } from '../lib/redis.js';
 import { TokenBucket } from '../lib/tokenBucket.js';
 import { GUEST_AUDIENCE, USER_AUDIENCE, peekAudience } from '../lib/tokens.js';
+import { User } from '../models/identity.js';
 import { RoomMember } from '../models/rooms.js';
 import { authenticateUser, type AuthedUser, type GuestContext } from '../modules/auth/middleware.js';
 import { applyBlockUpdate, joinBlock, type BlockPrincipal } from '../modules/blocks/service.js';
@@ -67,7 +68,9 @@ async function announcePresence(io: Server, socket: AppSocket, user: AuthedUser,
   if (!roomIds.length) return;
   const peers = await RoomMember.find({ roomId: { $in: roomIds }, leftAt: null, userId: { $ne: user.id } }).distinct('userId');
   const online = await hub.onlineUsers(peers.map(String));
-  online.forEach((userId) => socket.emit('presence', { userId, online: true }));
+  const hidden = new Set((await User.find({ _id: { $in: online }, showOnline: false }).distinct('_id')).map(String));
+  online.filter((id) => !hidden.has(id)).forEach((userId) => socket.emit('presence', { userId, online: true }));
+  if (await User.exists({ _id: user.id, showOnline: false })) return;
   io.to(roomIds.map(channels.room)).except(channels.user(user.id)).emit('presence', { userId: user.id, online: true });
 }
 
@@ -152,8 +155,8 @@ export function createGateway(httpServer: HttpServer) {
     maxHttpBufferSize: LIMITS.blockUpdateBytes + 4096,
   });
 
-  const pub = connectRedis();
-  const sub = connectRedis();
+  const pub = connectRedis({ background: true });
+  const sub = connectRedis({ background: true });
   if (pub && sub) io.adapter(createAdapter(pub, sub));
 
   io.use(async (socket, next) => {

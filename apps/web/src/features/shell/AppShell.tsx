@@ -1,5 +1,6 @@
 import { Bell, BellRing, GitBranch, MessagesSquare, Plus, Search, User, WifiOff } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useAppearance } from '../settings/appearance';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import type { RoomDTO } from '@strata/shared';
 import { Avatar, Button, EmptyState, IconButton, Pill, Spinner, cx, shortTime } from '../../components/ui';
@@ -7,13 +8,10 @@ import { useStore } from '../../state/store';
 import { NewConversationDialog, SearchDialog } from './dialogs';
 
 export function Wordmark({ size = 20, mark = false }: { size?: number; mark?: boolean }) {
+  const icon = useAppearance((a) => a.appIcon);
   return (
     <span className="inline-flex items-center gap-2">
-      <svg width={size} height={size} viewBox="0 0 24 24" role={mark ? 'img' : undefined} aria-label={mark ? 'Strata' : undefined} aria-hidden={mark ? undefined : true}>
-        <path d="M3 7c3-1.4 5.6 1.4 9 0s5.4-1.2 9-.2" fill="none" stroke="var(--ink)" strokeWidth="2.2" strokeLinecap="round" />
-        <path d="M3 12.5c3-1.4 5.6 1.4 9 0s5.4-1.2 9-.2" fill="none" stroke="var(--crystal)" strokeWidth="2.2" strokeLinecap="round" />
-        <path d="M3 18c3-1.4 5.6 1.4 9 0s5.4-1.2 9-.2" fill="none" stroke="var(--branch)" strokeWidth="2.2" strokeLinecap="round" />
-      </svg>
+      <img src={`/icons/${icon}-192.png`} width={size} height={size} alt={mark ? 'Strata' : ''} />
       {!mark && <span className="text-xl font-bold tracking-tight">Strata</span>}
     </span>
   );
@@ -192,7 +190,7 @@ function Rail({ onSearch }: { onSearch: () => void }) {
   return (
     <nav aria-label="Main" className="hidden w-[72px] shrink-0 flex-col items-center gap-2 border-r border-line py-4 lg:flex">
       <Link to="/" aria-label="Strata home" className="mb-3">
-        <Wordmark size={28} mark />
+        <Wordmark size={36} mark />
       </Link>
       <NavLink to="/" end aria-label="Inbox" title="Inbox" className={item}>
         <MessagesSquare size={20} />

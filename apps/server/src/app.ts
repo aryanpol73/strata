@@ -17,7 +17,7 @@ import { branchGuestRoutes, guestLinkRoutes, guestRoutes } from './modules/guest
 import { mediaRoutes } from './modules/media/routes.js';
 import { messageRoutes, roomMessageRoutes, searchRoutes } from './modules/messages/routes.js';
 import { roomRoutes } from './modules/rooms/routes.js';
-import { userRoutes } from './modules/users/routes.js';
+import { avatarRoutes, userRoutes } from './modules/users/routes.js';
 
 function apiRouter() {
   const api = Router();
@@ -30,6 +30,7 @@ function apiRouter() {
   api.use('/auth', authRoutes);
   api.use('/guest', guestRoutes);
   api.use('/media', mediaRoutes);
+  api.use('/avatars', avatarRoutes);
   api.use('/users', userRoutes);
   api.use('/notifications', notificationRoutes);
   api.use('/search', searchRoutes);

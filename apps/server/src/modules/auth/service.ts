@@ -1,5 +1,5 @@
 import { hash, verify } from '@node-rs/argon2';
-import type { DeviceSessionDTO, LoginInput, RegisterInput, SelfDTO } from '@strata/shared';
+import type { ChangePasswordInput, DeviceSessionDTO, LoginInput, RegisterInput, SelfDTO } from '@strata/shared';
 import { getEnv } from '../../config/env.js';
 import { AppError, conflict, isDuplicateKey, notFound, unauthenticated } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
@@ -18,12 +18,15 @@ export interface ClientInfo {
   ip: string;
 }
 
-export const toSelf = (u: Pick<IUser, '_id' | 'email' | 'displayName' | 'handle' | 'avatarUrl' | 'bio'>): SelfDTO => ({
+export const toSelf = (u: Pick<IUser, '_id' | 'email' | 'displayName' | 'handle' | 'avatarUrl' | 'avatarPrivate' | 'showOnline' | 'appearance' | 'bio'>): SelfDTO => ({
   id: String(u._id),
   email: u.email,
   displayName: u.displayName,
   handle: u.handle,
   avatarUrl: u.avatarUrl,
+  avatarPrivate: u.avatarPrivate ?? false,
+  showOnline: u.showOnline ?? true,
+  appearance: u.appearance ?? null,
   bio: u.bio,
 });
 
@@ -66,6 +69,17 @@ export async function login(input: LoginInput, client: ClientInfo) {
   const ok = await verify(user?.passwordHash ?? (await DUMMY_HASH), input.password);
   if (!user || !ok) throw new AppError(401, 'UNAUTHENTICATED', 'Incorrect email or password');
   return startSession(user, { ...client, deviceName: input.deviceName });
+}
+
+/** Someone changing a password may be locking out a thief, so every other device is signed out with it. */
+export async function changePassword(userId: string, currentSessionId: string, input: ChangePasswordInput) {
+  const user = await User.findById(userId).select('+passwordHash');
+  if (!user) throw unauthenticated();
+  if (!(await verify(user.passwordHash, input.currentPassword))) throw new AppError(403, 'FORBIDDEN', 'Your current password is incorrect');
+  user.passwordHash = await hash(input.newPassword);
+  await user.save();
+  const others = await DeviceSession.find({ userId, revokedAt: null, _id: { $ne: currentSessionId } }).select('_id');
+  await Promise.all(others.map((s) => revokeSession(s, 'password_changed')));
 }
 
 export async function revokeSession(session: Pick<IDeviceSession, '_id'>, reason: string) {

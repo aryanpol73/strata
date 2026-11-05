@@ -210,6 +210,7 @@ export function MessageRow({
   canOpenResolution,
   receipt,
   showName,
+  avatarUrl,
 }: {
   m: MessageDTO;
   compact: boolean;
@@ -224,6 +225,7 @@ export function MessageRow({
   canOpenResolution: boolean;
   receipt: string | null;
   showName: boolean;
+  avatarUrl?: string | null;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -268,7 +270,7 @@ export function MessageRow({
         <ResolutionCard m={m} actions={actions} canOpen={canOpenResolution} />
       ) : (
         <div className={cx('flex items-end gap-2', mine && 'flex-row-reverse')}>
-          {!mine && <div className="w-8 shrink-0">{!compact && <Avatar name={m.sender.name} size={32} />}</div>}
+          {!mine && <div className="w-8 shrink-0">{!compact && <Avatar name={m.sender.name} url={avatarUrl} size={32} />}</div>}
           <div className={cx('flex min-w-0 flex-col', mine ? 'items-end' : 'items-start', bare ? 'w-full max-w-md' : 'max-w-[82%]')}>
             <div className={cx('min-w-0 max-w-full', !bare && 'rounded-[18px] px-3.5 py-2', !bare && (mine ? 'st-bubble-mine rounded-br-md bg-bubble-mine text-on-bubble-mine' : 'rounded-bl-md border border-line bg-surface'))}>
             {!mine && !compact && (showName || m.sender.type === 'guest') && (

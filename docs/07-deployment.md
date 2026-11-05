@@ -20,7 +20,8 @@ allowance suspends the service instead of charging you.
 1. Merge to `main`, which is the branch the Blueprint deploys.
 2. Create an Atlas M0 cluster, ideally in Singapore to sit near the app, and a database user. Allow access from
    `0.0.0.0/0`, because Render's free plan has no fixed outbound address. That makes the database password the only
-   barrier, so make it long and random. Add `/strata` to the connection string, before any `?`.
+   barrier, so make it long and random. Add `/strata` to the connection string, before any `?`. Give the user `readWrite` on
+   `strata` only, never an admin role. Production refuses to start without TLS or a database name.
 3. Create a Cloudinary account and note the cloud name, API key and API secret.
 4. In Render, choose New, then Blueprint, and pick this repository. Paste the four values it asks for.
 5. Open `/api/health` on the new address, and expect `{"status":"ok"}`.
@@ -35,12 +36,13 @@ For push notifications, add the three `VAPID_*` variables to the service by hand
 | Sleeps after 15 minutes without traffic, and takes about a minute to wake | The first visit after a quiet spell is slow, and open sockets drop and reconnect |
 | Nothing runs while asleep | Digests, acknowledgement deadlines and escalations wait until the next visit wakes the service. They run late rather than being lost, because delivery state lives in MongoDB |
 | 750 instance hours a month per workspace | Enough for one service left running. A second free service could use them up, and services then stop until the next month |
-| Key Value isn't saved to disk | Safe. Redis holds nothing that can't be rebuilt |
+| Key Value isn't saved to disk | Redis can vanish without warning. Delivery keeps running, because its clock is a timer in the app. Rate limits reset, and pending block compaction waits for the next update |
 | No disk | Uploads have to go to Cloudinary |
 | One instance, no background workers | Hence `ROLE=all` |
 | Outbound ports 25, 465 and 587 are blocked | Email, once it's built, has to use a provider's HTTP API rather than SMTP |
 
-This suits testing with a few people. Delivery timing can't be relied on while the service sleeps, so a real launch
+Start with about 25 people or 50 sockets, and don't pass 100 sockets before measuring on Render. The 0.1 CPU is likely
+to run out before the 512 MB does. This suits testing with a few people. Delivery timing can't be relied on while the service sleeps, so a real launch
 needs a paid instance or another always-on host.
 
 `TRUST_PROXY_HOPS=1` is an assumption about Render's proxies. After deploying, check that rate limits apply per person
@@ -131,8 +133,9 @@ in-app notifications still work.
 | --- | --- |
 | Health | `GET /api/health` returns 503 when MongoDB is unreachable |
 | Logs | JSON on stdout, through pino. Tokens and passwords are redacted |
-| Backups | Back up MongoDB. It's the source of truth. Redis holds nothing that can't be rebuilt |
-| Redis loss | Safe. Delivery state lives in MongoDB, and the next sweep finds whatever is due |
+| Backups | Back up MongoDB. It's the source of truth. Redis needs no backup |
+| Redis loss | Delivery keeps running on the app's own timer, reading due work from MongoDB. While Redis is down, sign-in, registration and guest links return 503 so that their limits can't be bypassed, and other rate limits are skipped. Everything recovers by itself |
+| MongoDB loss | Requests fail within about 5 seconds and health returns 503, so Render restarts the app after a minute. It reconnects by itself |
 | Shutdown | SIGTERM drains sockets and workers |
 | Indexes | Mongoose builds them on start. For large collections, build them ahead of a deploy instead |
 

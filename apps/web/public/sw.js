@@ -1,8 +1,8 @@
 /* Strata service worker: keeps the app shell available offline and receives Web Push. */
-const CACHE = 'strata-shell-v1';
+const CACHE = 'strata-shell-v2';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(['/', '/manifest.webmanifest', '/icon.svg'])));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(['/', '/manifest-violet.webmanifest', '/icons/violet-192.png'])));
   self.skipWaiting();
 });
 
@@ -47,7 +47,7 @@ self.addEventListener('push', (event) => {
     self.clients.matchAll({ type: 'window' }).then((windows) => {
       // If Strata is already on screen, the app shows this itself.
       if (windows.some((w) => w.visibilityState === 'visible')) return undefined;
-      return self.registration.showNotification(data.title, { icon: '/icon.svg', data: { url: data.url } });
+      return self.registration.showNotification(data.title, { icon: '/icons/violet-192.png', data: { url: data.url } });
     }),
   );
 });

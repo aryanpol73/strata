@@ -8,9 +8,19 @@ import { closeRedis } from './lib/redis.js';
 import { createGateway } from './realtime/gateway.js';
 import { hub } from './realtime/hub.js';
 
+const MONGO_TIMEOUT_MS = 5000;
+
+/** Connection errors can quote the address they failed on, password included. */
+const withoutCredentials = (text: string) => text.replace(/\/\/[^@/\s]+@/g, '//***@');
+
+// Libraries fire some Redis calls and forget them. One of those failing shouldn't end every open conversation.
+process.on('unhandledRejection', (err) => logger.error({ err }, 'unhandled rejection'));
+
 async function main() {
   const env = getEnv();
-  await mongoose.connect(env.MONGODB_URI);
+  // Fails requests in seconds during an outage. The free Atlas tier also has a connection limit to stay well under.
+  mongoose.set('bufferTimeoutMS', MONGO_TIMEOUT_MS);
+  await mongoose.connect(env.MONGODB_URI, { maxPoolSize: 10, serverSelectionTimeoutMS: MONGO_TIMEOUT_MS });
   logger.info('connected to MongoDB');
 
   const jobs = await startJobs(env.ROLE);
@@ -42,6 +52,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  logger.fatal({ err: err instanceof Error ? err.message : err }, 'failed to start');
+  logger.fatal({ err: withoutCredentials(err instanceof Error ? err.message : String(err)) }, 'failed to start');
   process.exit(1);
 });

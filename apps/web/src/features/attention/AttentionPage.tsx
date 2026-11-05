@@ -174,7 +174,7 @@ export function AttentionPage() {
           </ul>
         )}
         <p className="text-[13px] text-ink-2">Your rules always win over how a sender chose to reach you.</p>
-        <Link to="/settings#attention" className="st-press inline-flex h-10 items-center justify-center rounded-xl border border-line-strong bg-raised text-sm font-semibold hover:border-violet">
+        <Link to="/settings/notifications" className="st-press inline-flex h-10 items-center justify-center rounded-xl border border-line-strong bg-raised text-sm font-semibold hover:border-violet">
           Edit rules
         </Link>
       </aside>

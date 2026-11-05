@@ -19,6 +19,9 @@ services:
       # Only the tests use this MongoDB binary, and it's a large download.
       - key: MONGOMS_DISABLE_POSTINSTALL
         value: '1'
+      # Leaves room under the free plan's 512 MB for everything outside the heap.
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=384
       - key: ROLE
         value: all
       - key: TRUST_PROXY_HOPS

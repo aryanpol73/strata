@@ -49,7 +49,7 @@ export function Member() {
         <Route path="r/:roomId" element={<Pane><RoomPage /></Pane>} />
         <Route path="branches" element={<Pane><BranchesPage /></Pane>} />
         <Route path="attention" element={<Pane><AttentionPage /></Pane>} />
-        <Route path="settings" element={<Pane><SettingsPage /></Pane>} />
+        <Route path="settings/:section?" element={<Pane><SettingsPage /></Pane>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

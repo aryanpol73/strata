@@ -86,12 +86,14 @@ test('the installed shell opens with no network, shows cached conversations, and
 });
 
 test('the manifest and icons a browser needs for install are all served', async ({ request }) => {
-  const manifest = await (await request.get('/manifest.webmanifest')).json();
-  expect(manifest.display).toBe('standalone');
-  for (const icon of manifest.icons as { src: string; type: string }[]) {
-    const res = await request.get(icon.src);
-    expect(res.ok(), icon.src).toBeTruthy();
-    expect(res.headers()['content-type']).toContain(icon.type);
+  for (const name of ['violet', 'emerald']) {
+    const manifest = await (await request.get(`/manifest-${name}.webmanifest`)).json();
+    expect(manifest.display).toBe('standalone');
+    for (const icon of manifest.icons as { src: string; type: string }[]) {
+      const res = await request.get(icon.src);
+      expect(res.ok(), icon.src).toBeTruthy();
+      expect(res.headers()['content-type']).toContain(icon.type);
+    }
   }
 });
 

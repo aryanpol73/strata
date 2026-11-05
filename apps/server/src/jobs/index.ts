@@ -7,6 +7,7 @@ import { setSweepKick, sweep } from '../modules/delivery/service.js';
 
 const QUEUE = 'strata';
 const COMPACTION_DELAY_MS = 35_000;
+const CLOSE_WAIT_MS = 3000;
 
 export interface Jobs {
   stop(): Promise<void>;
@@ -53,15 +54,22 @@ function startLocal(): Jobs {
   };
 }
 
+/** Closing waits on Redis, which may be gone, and shutdown can't wait forever. */
+const within = (ms: number, work: Promise<unknown>) => Promise.race([work, new Promise((resolve) => setTimeout(resolve, ms).unref())]);
+
 /**
- * Mongo holds the state and Redis provides the clock (ADR-7). If Redis loses every job, the next scheduled tick still
- * finds all due work, because what's due is a Mongo query rather than a job.
+ * The delivery clock is a plain timer, not a Redis job. Redis can lose everything at any moment, and a schedule kept
+ * there would vanish with it and stop every deadline until a restart. What's due is a Mongo query and claims are atomic,
+ * so several nodes can tick safely. Redis only carries compaction, which the next block update asks for again if lost.
+ *
+ * Nothing here waits for Redis, so the app can start while it's away.
  */
 export async function startJobs(role: 'all' | 'api' | 'worker'): Promise<Jobs> {
   const env = getEnv();
   if (!env.REDIS_URL) return startLocal();
 
-  const queue = new Queue(QUEUE, { connection: connectRedis({ forBullMq: true })! });
+  const queue = new Queue(QUEUE, { connection: connectRedis({ background: true })! });
+  queue.on('error', (err) => logger.warn({ err: err.message }, 'queue error'));
   const run = makeSweeper();
 
   // Kicks stay in-process: the rows are already durable, so a lost kick only costs a wait for the next tick.
@@ -73,27 +81,25 @@ export async function startJobs(role: 'all' | 'api' | 'worker'): Promise<Jobs> {
   });
 
   let worker: Worker | undefined;
+  let timer: NodeJS.Timeout | undefined;
   if (role !== 'api') {
-    await queue.upsertJobScheduler(
-      'delivery-sweep',
-      { every: env.DELIVERY_SWEEP_SECONDS * 1000 },
-      { name: 'sweep', opts: { removeOnComplete: true, removeOnFail: 100 } },
-    );
+    timer = setInterval(() => void run(), env.DELIVERY_SWEEP_SECONDS * 1000);
+    timer.unref();
     worker = new Worker(
       QUEUE,
       async (job) => {
-        if (job.name === 'sweep') await run();
-        else if (job.name === 'compact-block') await compactBlock((job.data as { blockId: string }).blockId);
+        if (job.name === 'compact-block') await compactBlock((job.data as { blockId: string }).blockId);
       },
-      { connection: connectRedis({ forBullMq: true })!, concurrency: 4 },
+      { connection: connectRedis({ background: true })!, concurrency: 4 },
     );
     worker.on('failed', (job, err) => logger.error({ job: job?.name, err }, 'job failed'));
+    worker.on('error', (err) => logger.warn({ err: err.message }, 'worker error'));
   }
 
   return {
     stop: async () => {
-      await worker?.close();
-      await queue.close();
+      clearInterval(timer);
+      await within(CLOSE_WAIT_MS, Promise.allSettled([worker?.close(), queue.close()]));
     },
   };
 }
