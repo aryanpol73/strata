@@ -71,7 +71,7 @@ export function NewConversationDialog({ onClose }: { onClose: () => void }) {
         ) : undefined
       }
     >
-      <div className="mb-3 flex rounded-lg bg-sunken p-0.5">
+      <div className="mb-3 flex rounded-lg bg-tint-plain p-0.5">
         {(['direct', 'group'] as const).map((m) => (
           <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={cx('flex-1 rounded-md py-1.5 text-sm font-medium transition', mode === m ? 'bg-surface shadow-card' : 'text-ink-2')}>
             {m === 'direct' ? 'One person' : 'A group'}
@@ -92,7 +92,7 @@ export function NewConversationDialog({ onClose }: { onClose: () => void }) {
         <div className="mt-2 flex flex-wrap gap-1.5">
           {chosen.map((c) => (
             <button key={c.id} type="button" aria-label={`Remove ${c.displayName}`} onClick={() => setChosen((all) => all.filter((x) => x.id !== c.id))}>
-              <Pill tone="vein">{c.displayName} ×</Pill>
+              <Pill tone="branch">{c.displayName} ×</Pill>
             </button>
           ))}
         </div>
@@ -100,7 +100,7 @@ export function NewConversationDialog({ onClose }: { onClose: () => void }) {
       <ul className="mt-2">
         {people.map((p) => (
           <li key={p.id}>
-            <button type="button" onClick={() => pick(p)} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-2 text-left transition hover:bg-sunken">
+            <button type="button" onClick={() => pick(p)} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-2 text-left st-press hover:bg-tint-plain">
               <Avatar name={p.displayName} url={p.avatarUrl} size={32} />
               <span>
                 <span className="block text-sm font-medium">{p.displayName}</span>
@@ -150,10 +150,10 @@ export function SearchDialog({ onClose }: { onClose: () => void }) {
                 onClose();
                 navigate(`/r/${h.message.roomId}?m=${h.message.seq}`);
               }}
-              className="w-full rounded-lg px-2 py-2 text-left transition hover:bg-sunken"
+              className="w-full rounded-lg px-2 py-2 text-left st-press hover:bg-tint-plain"
             >
               <span className="flex items-center gap-1.5 text-xs text-ink-2">
-                {h.roomKind === 'branch' && <GitBranch size={12} className="text-vein" />}
+                {h.roomKind === 'branch' && <GitBranch size={12} className="text-branch" />}
                 {h.roomName} · {h.message.sender.name} · {shortTime(h.message.createdAt)}
               </span>
               <span className="line-clamp-2 block text-sm">{payloadExcerpt(h.message.payload, 200)}</span>
@@ -260,7 +260,7 @@ export function RoomInfoDialog({ room, branches, onClose }: { room: RoomDTO; bra
                 type="button"
                 aria-pressed={room.settings.blockingAck === v}
                 onClick={() => run(() => api(`/rooms/${room.id}`, { method: 'PATCH', body: { blockingAck: v } }))}
-                className={cx('rounded-lg border px-2.5 py-1 text-sm capitalize transition', room.settings.blockingAck === v ? 'border-vein bg-vein-soft' : 'border-line hover:border-line-strong')}
+                className={cx('rounded-lg border px-2.5 py-1 text-sm capitalize transition', room.settings.blockingAck === v ? 'border-violet bg-tint-violet' : 'border-line hover:border-line-strong')}
               >
                 {v === 'members' ? 'Everyone' : 'Admins only'}
               </button>
@@ -290,7 +290,7 @@ export function RoomInfoDialog({ room, branches, onClose }: { room: RoomDTO; bra
                 </Button>
               )}
               {admin && room.kind === 'group' && m.userId !== me.id && m.role !== 'owner' && (
-                <button type="button" aria-label={`Remove ${m.displayName}`} title="Remove" onClick={() => run(() => api(`/rooms/${room.id}/members/${m.userId}`, { method: 'DELETE' }))} className="rounded p-1 text-ink-3 transition hover:text-oxide">
+                <button type="button" aria-label={`Remove ${m.displayName}`} title="Remove" onClick={() => run(() => api(`/rooms/${room.id}/members/${m.userId}`, { method: 'DELETE' }))} className="rounded p-1 text-ink-3 transition hover:text-alert">
                   <UserMinus size={15} />
                 </button>
               )}
@@ -311,7 +311,7 @@ export function RoomInfoDialog({ room, branches, onClose }: { room: RoomDTO; bra
                         setQuery('');
                         void run(() => api(`/rooms/${room.id}/members`, { method: 'POST', body: { userIds: [p.id] } }));
                       }}
-                      className="flex w-full items-center gap-2.5 rounded-lg px-1 py-1.5 text-left text-sm transition hover:bg-sunken"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-1 py-1.5 text-left text-sm st-press hover:bg-tint-plain"
                     >
                       <Avatar name={p.displayName} url={p.avatarUrl} size={26} /> {p.displayName}
                     </button>
@@ -337,10 +337,10 @@ export function RoomInfoDialog({ room, branches, onClose }: { room: RoomDTO; bra
                     onClose();
                     navigate(`/r/${b.roomId}`);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left text-sm transition enabled:hover:bg-sunken"
+                  className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left text-sm transition enabled:hover:bg-tint-plain"
                 >
                   <span className="min-w-0 flex-1 truncate">{b.title}</span>
-                  <Pill tone={b.status === 'open' ? 'vein' : 'copper'}>{b.mergedAt ? 'Merged' : b.status}</Pill>
+                  <Pill tone={b.status === 'open' ? 'branch' : 'crystal'}>{b.mergedAt ? 'Merged' : b.status}</Pill>
                 </button>
               </li>
             ))}
@@ -349,7 +349,7 @@ export function RoomInfoDialog({ room, branches, onClose }: { room: RoomDTO; bra
       )}
 
       {room.kind === 'group' && (
-        <Button className="hover:border-oxide hover:text-oxide" onClick={leave}>
+        <Button className="hover:border-alert hover:text-alert" onClick={leave}>
           Leave group
         </Button>
       )}

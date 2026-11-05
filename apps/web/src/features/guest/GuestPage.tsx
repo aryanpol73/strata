@@ -12,7 +12,7 @@ import type {
   SyncResponse,
 } from '@strata/shared';
 import { ApiError, CLIENT_HEADER, createClient } from '../../api/client';
-import { Avatar, Button, EmptyState, Field, IconButton, Input, Pill, Spinner, cx, timeLabel } from '../../components/ui';
+import { Avatar, Button, EmptyState, Field, IconButton, Input, Pill, Segmented, Spinner, cx, timeLabel } from '../../components/ui';
 import type { StrataSocket } from '../../realtime/socket';
 import { mergeMessages } from '../../state/store';
 import { BlockCard } from '../blocks/BlockCard';
@@ -60,7 +60,7 @@ function Join({ token, onJoined }: { token: string; onJoined: (res: GuestRedeemR
     <main className="flex min-h-dvh items-center justify-center p-6">
       <form onSubmit={submit} className="w-full max-w-sm space-y-3.5">
         <Wordmark size={24} />
-        <h1 className="font-serif text-2xl font-medium">You've been invited to a discussion</h1>
+        <h1 className="text-[28px] leading-[34px] font-bold tracking-tight">You've been invited to a discussion</h1>
         <p className="text-sm text-ink-2">No account needed. You'll only see this one discussion, and your access ends when the link does.</p>
         <Field label="Your name" hint="Shown to everyone in the discussion.">
           <Input required value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
@@ -71,11 +71,11 @@ function Join({ token, onJoined }: { token: string; onJoined: (res: GuestRedeemR
           </Field>
         )}
         {error && (
-          <p role="alert" className="rounded-lg bg-oxide-soft px-3 py-2 text-sm text-oxide">
+          <p role="alert" className="rounded-lg bg-tint-alert px-3 py-2 text-sm text-alert">
             {error}
           </p>
         )}
-        <Button type="submit" variant="primary" disabled={busy || !name.trim()} className="h-10 w-full">
+        <Button type="submit" variant="primary" busy={busy} disabled={!name.trim()} className="h-10 w-full">
           Join discussion
         </Button>
       </form>
@@ -172,22 +172,16 @@ function Room({ client, guest, onEnded }: { client: Client; guest: GuestRedeemRe
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex items-center gap-2 border-b border-line px-3 py-2 sm:px-5">
-        <GitBranch size={16} className="shrink-0 text-vein" />
+        <GitBranch size={16} className="shrink-0 text-branch" />
         <div className="min-w-0 flex-1">
           <h1 className="truncate font-semibold">{room.title}</h1>
           <p className="truncate text-xs text-ink-2">
             {room.participants.map((p) => p.name).join(', ')} · access ends {new Date(room.expiresAt).toLocaleDateString()}
           </p>
         </div>
-        <Pill tone="copper">Guest</Pill>
+        <Pill tone="crystal">Guest</Pill>
         {room.scope.canvas && (
-          <div role="tablist" className="flex rounded-lg bg-sunken p-0.5">
-            {(['stream', 'canvas'] as const).map((v) => (
-              <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)} className={cx('rounded-md px-2.5 py-1 text-xs font-medium capitalize', view === v ? 'bg-surface shadow-card' : 'text-ink-2')}>
-                {v}
-              </button>
-            ))}
-          </div>
+          <Segmented role="tablist" label="View" value={view} onChange={setView} options={[['stream', 'stream'], ['canvas', 'canvas']]} />
         )}
         <IconButton label="Leave discussion" onClick={leave}>
           <LogOut size={17} />
@@ -208,19 +202,23 @@ function Room({ client, guest, onEnded }: { client: Client; guest: GuestRedeemRe
                   {m.payload.text}
                 </p>
               ) : (
-                <article key={m.id} className="mt-3 flex gap-2.5">
-                  <Avatar name={m.sender.name} size={34} />
-                  <div className="min-w-0 flex-1">
-                    <header className="flex items-baseline gap-2">
-                      <span className="text-sm font-semibold">{m.sender.name}</span>
-                      {m.sender.type === 'guest' && <Pill tone="copper">Guest</Pill>}
-                      <time className="font-mono text-[11px] text-ink-3">{timeLabel(m.createdAt)}</time>
-                    </header>
-                    <MessageBody
-                      m={m}
-                      urlFor={urlFor}
-                      renderBlock={(p) => <BlockCard blockId={p.blockId} type={p.blockType} fallbackTitle={p.title} socket={socket} actor={actor} history={false} />}
-                    />
+                <article key={m.id} className={cx('mt-3 flex items-end gap-2', m.sender.id === guest.id && 'flex-row-reverse')}>
+                  {m.sender.id !== guest.id && <Avatar name={m.sender.name} size={32} />}
+                  <div className={cx('min-w-0', m.payload.type === 'block' ? 'w-full max-w-md' : 'max-w-[82%]')}>
+                    <div className={cx(m.payload.type !== 'block' && 'rounded-[18px] px-3.5 py-2', m.payload.type !== 'block' && (m.sender.id === guest.id ? 'st-bubble-mine rounded-br-md bg-bubble-mine text-on-bubble-mine' : 'rounded-bl-md border border-line bg-surface'))}>
+                      {m.sender.id !== guest.id && (
+                        <header className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-ink-2">{m.sender.name}</span>
+                          {m.sender.type === 'guest' && <Pill tone="crystal">Guest</Pill>}
+                          <time className="font-mono text-[11px] text-ink-3">{timeLabel(m.createdAt)}</time>
+                        </header>
+                      )}
+                      <MessageBody
+                        m={m}
+                        urlFor={urlFor}
+                        renderBlock={(p) => <BlockCard blockId={p.blockId} type={p.blockType} fallbackTitle={p.title} socket={socket} actor={actor} history={false} />}
+                      />
+                    </div>
                   </div>
                 </article>
               ),
@@ -231,7 +229,7 @@ function Room({ client, guest, onEnded }: { client: Client; guest: GuestRedeemRe
           </p>
           {room.scope.write && open ? (
             <form onSubmit={send} className="flex items-center gap-1 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
-              <div className="flex flex-1 items-center gap-1 rounded-xl border border-line bg-surface p-1 focus-within:border-line-strong">
+              <div className="st-glass flex flex-1 items-center gap-1 rounded-[20px] p-1 shadow-float">
                 <input
                   value={text}
                   onChange={(e) => {
@@ -242,8 +240,8 @@ function Room({ client, guest, onEnded }: { client: Client; guest: GuestRedeemRe
                   placeholder="Write a message"
                   className="min-w-0 flex-1 bg-transparent px-2 py-1.5 outline-none placeholder:text-ink-3"
                 />
-                <IconButton type="submit" label="Send" disabled={!text.trim()}>
-                  <SendHorizontal size={17} />
+                <IconButton type="submit" label="Send" disabled={!text.trim()} className={cx(text.trim() && 'st-primary st-pop hover:text-on-violet')}>
+                  <SendHorizontal size={17} className="i-nudge" />
                 </IconButton>
               </div>
             </form>

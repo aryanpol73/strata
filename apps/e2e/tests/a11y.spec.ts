@@ -13,10 +13,15 @@ async function audit(page: Page, where: string) {
   expect(summary).toEqual([]);
 }
 
-for (const colorScheme of ['light', 'dark'] as const) {
-  test.describe(`${colorScheme} theme`, () => {
+/** The theme is the person's choice in Settings, kept in localStorage, not the system's colour scheme. */
+const withTheme = (baseURL: string | undefined, theme: 'deep' | 'day') => ({
+  storageState: { cookies: [], origins: [{ origin: baseURL!, localStorage: [{ name: 'strata:theme', value: theme }] }] },
+});
+
+for (const theme of ['deep', 'day'] as const) {
+  test.describe(`${theme} theme`, () => {
     test('sign-in page', async ({ browser, baseURL }) => {
-      const page = watch(await (await browser.newContext({ baseURL, colorScheme })).newPage());
+      const page = watch(await (await browser.newContext({ baseURL, ...withTheme(baseURL, theme) })).newPage());
       await page.goto('/');
       await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
       await audit(page, 'sign-in');
@@ -29,7 +34,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await say(request, bo, room.id, 'Whispered note', { posture: 'whisper' });
       await say(request, bo, room.id, 'Please confirm', { posture: 'blocking_ack', ackDeadline: new Date(Date.now() + 3_600_000).toISOString() });
 
-      const a = await signIn(browser, baseURL!, ada, { colorScheme });
+      const a = await signIn(browser, baseURL!, ada, withTheme(baseURL, theme));
       await openRoom(a, room.id);
       await addChecklist(a, 'Audit list', ['One thing']);
       await a.getByRole('article').filter({ hasText: 'A question for the group' }).hover();
@@ -44,7 +49,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const ada = await person(request, 'Ada');
       const room = await group(request, ada, []);
       await say(request, ada, room.id, 'Branch source');
-      const a = await signIn(browser, baseURL!, ada, { colorScheme });
+      const a = await signIn(browser, baseURL!, ada, withTheme(baseURL, theme));
       await openRoom(a, room.id);
       await branchFrom(a, 'Branch source', 'Audit branch', []);
       await audit(a, 'branch');
@@ -57,7 +62,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
     test('settings', async ({ browser, baseURL, request }) => {
       const ada = await person(request, 'Ada');
-      const a = await signIn(browser, baseURL!, ada, { colorScheme });
+      const a = await signIn(browser, baseURL!, ada, withTheme(baseURL, theme));
       await a.goto('/settings');
       await expect(a.getByText('This device', { exact: true })).toBeVisible();
       await audit(a, 'settings');

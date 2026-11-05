@@ -10,13 +10,13 @@ Last updated 2026-11-05. The rule here is that nothing is marked complete withou
 | Suite | Result | What it runs against |
 | --- | --- | --- |
 | `packages/shared` | 9 of 9 | Yjs documents |
-| `apps/server` | 221 of 221 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients, and a second real server process |
+| `apps/server` | 222 of 222 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients, and a second real server process |
 | `apps/web` | 20 of 20 | Store and block session logic |
-| `apps/e2e` | 53 of 53 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
-| **Total** | **303 of 303** | |
+| `apps/e2e` | 59 of 59 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
+| **Total** | **310 of 310** | |
 
 Type-checking passes in all packages, with `strict` and `noUncheckedIndexedAccess`. Production builds pass. The largest
-web chunk is 273 KB (88 KB gzipped). Accessibility audits (axe, WCAG 2.1 AA) pass on the main screens in both themes.
+web chunk is 273 KB (88 KB gzipped). Accessibility audits (axe, WCAG 2.1 AA) pass on the main screens in both the Deep and Day themes.
 
 The browser suite also passed twice over in one run, and the offline tests six times over, because some of the bugs
 below only appeared intermittently.
@@ -63,6 +63,14 @@ below only appeared intermittently.
 All seven priority interactions from the brief are covered by automated browser tests: creating a branch, switching between parent
 and branch, merging, editing live blocks with a second client, moving messages to the Canvas, navigating both ways
 between Canvas and source, and selecting a posture.
+
+### Visual redesign
+
+- [x] Deep and Day themes, chosen in Settings and kept across reloads (Browser, audited in both)
+- [x] Desktop rail, inbox and Canvas panels; floating glass tab bar on phones, hidden in conversations (Browser)
+- [x] Message bubbles, floating glass composer, sliding Stream/Canvas switch (Browser)
+- [x] Branches and Attention screens, with Needs You and acknowledgement from the list (Automated, Browser)
+- [x] Buttons respond to the pointer, show progress while busy, and stay still under reduced motion (Browser)
 
 ## Partially completed
 
@@ -122,6 +130,8 @@ Kept here because each one shaped a test that now guards it.
 | Going offline took up to a minute to notice | Browser | Medium |
 | Change history dropped entries made within a minute of each other | Investigating a browser failure | Medium |
 | Muted text and tinted labels failed WCAG AA contrast in both themes | axe audit | Medium |
+| With reduced motion, every press left a ripple element behind in the button | Browser test | Low |
+| Button motion styles overrode `absolute`, so the phone message menu took up its own line | Reviewing screenshots | Low |
 | A clock stepping backwards drained the socket budget | Client test | Low |
 | Two simultaneous refreshes cleared the winner's cookie, signing the user out | Reloading in the browser | **High** |
 | After a refused block edit, every later edit from that client failed | Client test | **High** |

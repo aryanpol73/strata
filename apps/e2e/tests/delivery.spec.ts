@@ -18,7 +18,7 @@ test('a whisper appears in the conversation without any interruption', async ({ 
   const link = b.getByRole('link', { name: /Quiet Room/ });
   await expect(link.getByLabel('1 quiet messages')).toBeVisible();
   await expect(link.getByLabel(/unread/)).toHaveCount(0);
-  await expect(b.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible();
+  await expect(b.getByRole('link', { name: 'Attention', exact: true }).first()).toBeVisible();
 
   await link.click();
   await expect(row(b, 'no rush on this').getByText('Whisper')).toBeVisible();
@@ -32,7 +32,7 @@ test('a standard message rings the bell, live', async ({ browser, baseURL, reque
   const room = await group(request, ada, [bo]);
   const b = await signIn(browser, baseURL!, bo);
   await say(request, ada, room.id, 'Are you free?');
-  await expect(b.getByRole('button', { name: /Notifications, 1 new/ })).toBeVisible();
+  await expect(b.getByRole('link', { name: /Attention, 1 new/ }).first()).toBeVisible();
 });
 
 test('a digest stays out of the bell, and the sender can see when it will land', async ({ browser, baseURL, request }) => {
@@ -45,7 +45,7 @@ test('a digest stays out of the bell, and the sender can see when it will land',
   await write(a, 'weekly numbers');
   await expect(row(a, 'weekly numbers').getByText('Digest')).toBeVisible();
   await b.waitForTimeout(2500);
-  await expect(b.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible();
+  await expect(b.getByRole('link', { name: 'Attention', exact: true }).first()).toBeVisible();
 
   await action(a, 'weekly numbers', 'Delivery status');
   await expect(a.getByRole('dialog').getByText(/In their digest/)).toBeVisible();
@@ -90,8 +90,9 @@ test('quiet hours and rules saved in Settings change what happens next', async (
   await expect(b.getByText('Saved')).toBeVisible();
 
   await say(request, ada, room.id, 'muted by rule');
+  await b.goto('/');
   await b.waitForTimeout(2500);
-  await expect(b.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible();
+  await expect(b.getByRole('link', { name: 'Attention', exact: true }).first()).toBeVisible();
 
   await b.getByRole('link', { name: /Rules Room/ }).click();
   await expect(row(b, 'muted by rule')).toBeVisible();

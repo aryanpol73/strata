@@ -7,6 +7,7 @@ import {
   GitBranch,
   GitMerge,
   Info,
+  Layers,
   PanelRightClose,
   PanelRightOpen,
   RotateCcw,
@@ -25,9 +26,9 @@ import type {
   RoomDTO,
 } from '@strata/shared';
 import { ApiError, api } from '../../api/client';
-import { Avatar, Button, Dialog, EmptyState, IconButton, Pill, Spinner, cx, dayLabel, timeLabel } from '../../components/ui';
+import { Avatar, Button, Dialog, EmptyState, IconButton, Pill, Segmented, Spinner, cx, dayLabel, timeLabel } from '../../components/ui';
 import { getSocket, type StrataSocket } from '../../realtime/socket';
-import { loadMessages, loadOlder, loadRoom, markRead, retryPending } from '../../state/actions';
+import { acknowledge, loadMessages, loadOlder, loadRoom, markRead, retryPending } from '../../state/actions';
 import { toast, toastError, useStore, type PendingMessage } from '../../state/store';
 import { BlockCard } from '../blocks/BlockCard';
 import { AddParticipantsDialog, CreateBranchDialog, GuestDialog, MergeDialog, ResolveDialog } from '../branches/dialogs';
@@ -82,27 +83,23 @@ function TypingIndicator({ roomId }: { roomId: string }) {
   }, [entries]);
   const names = Object.values(entries ?? {}).filter((t) => t.until > now).map((t) => t.name);
   return (
-    <p aria-live="polite" className="h-5 px-5 text-xs text-ink-2">
-      {typingLine(names)}
+    <p aria-live="polite" className="flex h-7 items-center px-4 sm:px-6">
+      {names.length > 0 && <span className="st-glass rounded-full px-2.5 py-0.5 text-xs text-ink-2 animate-fade">{typingLine(names)}</span>}
     </p>
   );
 }
 
 function PendingRow({ p }: { p: PendingMessage }) {
-  const me = useStore((s) => s.me);
   return (
-    <div className="mt-1 flex gap-2.5 px-2 opacity-70 sm:px-3">
-      <div className="w-9 shrink-0">{me && <Avatar name={me.displayName} />}</div>
-      <div className="min-w-0">
-        <p className="whitespace-pre-wrap">{p.text}</p>
-        {p.failed ? (
-          <button type="button" className="text-xs text-oxide underline" onClick={() => retryPending(p).catch(toastError)}>
-            Not sent. Tap to retry
-          </button>
-        ) : (
-          <p className="text-xs text-ink-3">Sending…</p>
-        )}
-      </div>
+    <div className="mt-1 flex flex-col items-end px-2 sm:px-3">
+      <p className="st-bubble-mine max-w-[82%] rounded-[18px] rounded-br-md bg-bubble-mine px-3.5 py-2 whitespace-pre-wrap text-on-bubble-mine opacity-70">{p.text}</p>
+      {p.failed ? (
+        <button type="button" className="px-1 text-xs text-alert underline" onClick={() => retryPending(p).catch(toastError)}>
+          Not sent. Tap to retry
+        </button>
+      ) : (
+        <p className="px-1 text-xs text-ink-3">Sending…</p>
+      )}
     </div>
   );
 }
@@ -201,10 +198,10 @@ function Stream({
   if (denied) return <EmptyState title="This conversation isn't available">It may not exist, or you may not have access.</EmptyState>;
 
   return (
-    <div ref={scroller} onScroll={onScroll} role="log" aria-label="Messages" className="scroll-thin min-h-0 flex-1 overflow-y-auto px-1 pb-2 sm:px-2">
+    <div ref={scroller} onScroll={onScroll} role="log" aria-label="Messages" className="scroll-thin min-h-0 flex-1 overflow-y-auto px-1 pb-32 sm:px-2">
       {room.branch?.origin && (
-        <div className="mx-2 mt-3 mb-1 rounded-lg border-l-2 border-vein bg-vein-soft/40 px-3 py-2 sm:mx-3">
-          <p className="text-xs font-medium text-vein">Branched from</p>
+        <div className="mx-2 mt-3 mb-1 rounded-lg border-l-2 border-violet bg-tint-violet/40 px-3 py-2 sm:mx-3">
+          <p className="text-xs font-medium text-branch">Branched from</p>
           <Link to={`/r/${room.parentRoomId}?m=${room.branch.origin.seq}`} className="block text-sm hover:underline">
             <span className="font-medium">{room.branch.origin.senderName}</span> <span className="text-ink-2">{room.branch.origin.excerpt}</span>
           </Link>
@@ -252,6 +249,7 @@ function Stream({
               highlighted={focusSeq === m.seq}
               canOpenResolution={m.payload.type === 'resolution' && branches.some((b) => b.roomId === (m.payload as { branchRoomId: string }).branchRoomId && b.canReadTranscript)}
               receipt={myLast?.id === m.id ? receiptFor(m, room, me.id) : null}
+              showName={room.kind !== 'direct'}
               body={
                 <MessageBody
                   m={m}
@@ -302,7 +300,7 @@ function DeliveryDialog({ message, onClose }: { message: MessageDTO; onClose: ()
                     <p className="text-sm font-medium">{r.name}</p>
                     <p className="text-xs text-ink-2">{describe(r)}</p>
                   </div>
-                  {ack && <Pill tone={ack.ackedAt ? 'vein' : 'oxide'}>{ack.ackedAt ? 'Acknowledged' : 'Waiting'}</Pill>}
+                  {ack && <Pill tone={ack.ackedAt ? 'branch' : 'alert'}>{ack.ackedAt ? 'Acknowledged' : 'Waiting'}</Pill>}
                 </li>
               );
             })}
@@ -319,8 +317,8 @@ function ReferencesDialog({ refs, onClose, onCanvas, onOpen }: { refs: MessageRe
       <ul>
         {refs.map((r) => (
           <li key={`${r.kind}-${r.id}`}>
-            <button type="button" onClick={() => (r.kind === 'canvas' ? onCanvas(r.id) : onOpen(r))} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-2 text-left text-sm transition hover:bg-sunken">
-              {r.kind === 'canvas' ? <Bookmark size={15} className="text-copper" /> : r.kind === 'branch' ? <GitBranch size={15} className="text-vein" /> : <Waypoints size={15} className="text-ink-2" />}
+            <button type="button" onClick={() => (r.kind === 'canvas' ? onCanvas(r.id) : onOpen(r))} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-2 text-left text-sm st-press hover:bg-tint-plain">
+              {r.kind === 'canvas' ? <Bookmark size={15} className="text-crystal" /> : r.kind === 'branch' ? <GitBranch size={15} className="text-branch" /> : <Waypoints size={15} className="text-ink-2" />}
               <span className="min-w-0 flex-1 truncate">{r.label}</span>
             </button>
           </li>
@@ -346,22 +344,22 @@ function BranchBar({ room, onResolve, onMerge, onGuests, onAdd }: { room: RoomDT
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-line bg-vein-soft/30 px-3 py-1.5 sm:px-5">
-      <Pill tone={merged ? 'copper' : branch.status === 'open' ? 'vein' : branch.status === 'resolved' ? 'copper' : 'plain'}>{merged ? 'Merged' : branch.status}</Pill>
+    <div className="flex flex-wrap items-center gap-2 border-b border-line bg-tint-branch px-3 py-1.5 sm:px-5">
+      <Pill tone={merged ? 'crystal' : branch.status === 'open' ? 'branch' : branch.status === 'resolved' ? 'crystal' : 'plain'}>{merged ? 'Merged' : branch.status}</Pill>
       {branch.visibility === 'private' && <Pill tone="plain">Private</Pill>}
       <span className="flex-1" />
       {!room.me.readOnly && branch.status === 'open' && (
         <>
-          <Button className="h-8 text-xs" onClick={onGuests}>
+          <Button className="h-9 px-3 text-xs" onClick={onGuests}>
             <UserPlus size={14} /> <span className="max-sm:hidden">Invite guest</span>
           </Button>
           {manages && (
-            <Button className="h-8 text-xs" onClick={onAdd}>
+            <Button className="h-9 px-3 text-xs" onClick={onAdd}>
               <Users size={14} /> <span className="max-sm:hidden">Add people</span>
             </Button>
           )}
           {manages && (
-            <Button variant="primary" className="h-8 text-xs" onClick={onResolve}>
+            <Button variant="primary" className="h-9 px-3 text-xs" onClick={onResolve}>
               <CheckCircle2 size={14} /> Resolve
             </Button>
           )}
@@ -369,10 +367,10 @@ function BranchBar({ room, onResolve, onMerge, onGuests, onAdd }: { room: RoomDT
       )}
       {manages && branch.status === 'resolved' && !merged && (
         <>
-          <Button className="h-8 text-xs" onClick={() => act('reopen')}>
+          <Button className="h-9 px-3 text-xs" onClick={() => act('reopen')}>
             <RotateCcw size={14} /> Reopen
           </Button>
-          <Button variant="vein" className="h-8 text-xs" onClick={onMerge}>
+          <Button variant="branch" className="h-9 px-3 text-xs" onClick={onMerge}>
             <GitMerge size={14} /> Merge resolution
           </Button>
         </>
@@ -454,7 +452,7 @@ export function RoomPage() {
         if (confirm('Delete this message for everyone?')) void api(`/messages/${m.id}`, { method: 'DELETE' }).catch(toastError);
       },
       onDelivery: setDelivery,
-      onAck: (m) => void api(`/messages/${m.id}/ack`, { method: 'POST' }).catch(toastError),
+      onAck: (m) => void acknowledge(m.id).catch(toastError),
       onOpenBranch: (id) => navigate(`/r/${id}`),
       onShowRefs: async (m) => {
         try {
@@ -523,7 +521,7 @@ export function RoomPage() {
   return (
     <div className="flex h-full min-w-0">
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-1.5 border-b border-line px-2 py-1.5 sm:px-4">
+        <header className="flex min-h-16 items-center gap-1.5 border-b border-line px-2 py-1.5 sm:px-4">
           <IconButton label="Back to conversations" className="lg:hidden" onClick={() => navigate(room.parentRoomId ? `/r/${room.parentRoomId}` : '/')}>
             <ArrowLeft size={18} />
           </IconButton>
@@ -538,19 +536,15 @@ export function RoomPage() {
               {room.kind !== 'branch' && <Avatar name={room.name} url={room.avatarUrl} size={34} online={otherOnline} />}
               <span className="min-w-0">
                 <span className="flex items-center gap-1.5 truncate font-semibold">
-                  {room.kind === 'branch' && <GitBranch size={15} className="shrink-0 text-vein" />}
+                  {room.kind === 'branch' && <GitBranch size={15} className="shrink-0 text-branch" />}
                   <span className="truncate">{room.name}</span>
                 </span>
                 {room.kind !== 'branch' && <span className="block truncate text-xs text-ink-2">{subtitle}</span>}
               </span>
             </button>
           </div>
-          <div role="tablist" aria-label="View" className="flex rounded-lg bg-sunken p-0.5 lg:hidden">
-            {(['stream', 'canvas'] as const).map((v) => (
-              <button key={v} type="button" role="tab" aria-selected={mobileView === v} onClick={() => setMobileView(v)} className={cx('rounded-md px-2.5 py-1 text-xs font-medium capitalize transition', mobileView === v ? 'bg-surface text-ink shadow-card' : 'text-ink-2')}>
-                {v}
-              </button>
-            ))}
+          <div className="lg:hidden">
+            <Segmented role="tablist" label="View" value={mobileView} onChange={setMobileView} options={[['stream', 'stream'], ['canvas', 'canvas']]} />
           </div>
           <IconButton label="Conversation details" className="max-lg:hidden" onClick={() => setDialog('info')}>
             <Info size={18} />
@@ -563,20 +557,24 @@ export function RoomPage() {
         {room.kind === 'branch' && room.branch && (
           <BranchBar room={room} onResolve={() => setDialog('resolve')} onMerge={() => setDialog('merge')} onGuests={() => setDialog('guests')} onAdd={() => setDialog('add')} />
         )}
-        {connection === 'offline' && <p className="bg-copper-soft px-4 py-1 text-center text-xs text-copper">You're offline. Messages will send when you reconnect.</p>}
+        {connection === 'offline' && <p className="bg-tint-crystal px-4 py-1 text-center text-xs text-crystal">You're offline. Messages will send when you reconnect.</p>}
 
         {showCanvasInline && <div className="min-h-0 flex-1 bg-sheet">{canvas}</div>}
-        <div className={cx('flex min-h-0 flex-1 flex-col', showCanvasInline && 'hidden')}>
+        <div className={cx('relative flex min-h-0 flex-1 flex-col', showCanvasInline && 'hidden')}>
           <Stream room={room} focusSeq={focusSeq} branches={branches} actions={actions} socket={socket} />
-          <TypingIndicator roomId={room.id} />
-          <Composer roomId={room.id} replyTo={replyTo} onClearReply={() => setReplyTo(null)} closedReason={closedReason} />
+          {/* Floats over the stream, which is what makes it glass: messages pass beneath it as they scroll. */}
+          <div className="absolute inset-x-0 bottom-0 z-10">
+            <TypingIndicator roomId={room.id} />
+            <Composer roomId={room.id} replyTo={replyTo} onClearReply={() => setReplyTo(null)} closedReason={closedReason} />
+          </div>
         </div>
       </main>
 
       {canvasOpen && isDesktop && (
-        <aside aria-label="Canvas" className="flex w-[min(38%,460px)] shrink-0 flex-col border-l border-line bg-sheet">
-          <header className="flex h-[51px] items-center gap-2 border-b border-line px-5">
-            <h2 className="font-serif text-lg font-medium">Canvas</h2>
+        <aside aria-label="Canvas" className="flex w-[min(38%,440px)] shrink-0 flex-col border-l border-line bg-sheet">
+          <header className="flex min-h-16 items-center gap-2 border-b border-line px-5">
+            <Layers size={18} className="text-crystal" />
+            <h2 className="font-serif text-xl font-medium">Canvas</h2>
             <span className="truncate text-xs text-ink-2">what this conversation has settled</span>
           </header>
           <div className="min-h-0 flex-1">{canvas}</div>

@@ -9,7 +9,7 @@ import { toast, toastError, useStore } from '../../state/store';
 function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
   return (
     <label className="flex cursor-pointer items-start gap-2.5 py-1">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-4 accent-[var(--vein)]" />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-4 accent-[var(--violet-fill)]" />
       <span>
         <span className="block text-sm">{label}</span>
         {hint && <span className="block text-xs text-ink-2">{hint}</span>}
@@ -58,13 +58,13 @@ export function CreateBranchDialog({ message, room, onClose, onCreated }: { mess
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="vein" disabled={!title.trim() || busy} onClick={create}>
+          <Button variant="branch" disabled={!title.trim()} busy={busy} onClick={create}>
             <GitBranch size={15} /> Start branch
           </Button>
         </>
       }
     >
-      <blockquote className="mb-3 border-l-2 border-vein pl-3 text-sm text-ink-2">
+      <blockquote className="mb-3 border-l-2 border-branch pl-3 text-sm text-ink-2">
         <span className="font-medium text-ink">{message.sender.name}</span> {payloadExcerpt(message.payload, 160)}
       </blockquote>
       <div className="space-y-3">
@@ -77,8 +77,8 @@ export function CreateBranchDialog({ message, room, onClose, onCreated }: { mess
           <ul className="scroll-thin max-h-44 overflow-y-auto">
             {others.map((m) => (
               <li key={m.userId}>
-                <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-sunken">
-                  <input type="checkbox" checked={chosen.has(m.userId)} onChange={() => toggle(m.userId)} className="size-4 accent-[var(--vein)]" />
+                <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-tint-plain">
+                  <input type="checkbox" checked={chosen.has(m.userId)} onChange={() => toggle(m.userId)} className="size-4 accent-[var(--violet-fill)]" />
                   <Avatar name={m.displayName} url={m.avatarUrl} size={26} />
                   <span className="text-sm">{m.displayName}</span>
                 </label>
@@ -120,7 +120,7 @@ export function ResolveDialog({ room, onClose }: { room: RoomDTO; onClose: () =>
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={!summary.trim() || busy} onClick={resolve}>
+          <Button variant="primary" disabled={!summary.trim()} busy={busy} onClick={resolve}>
             Mark resolved
           </Button>
         </>
@@ -164,14 +164,14 @@ export function MergeDialog({ room, onClose }: { room: RoomDTO; onClose: () => v
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="vein" disabled={busy} onClick={merge}>
+          <Button variant="branch" busy={busy} onClick={merge}>
             Post to {parent?.name ?? 'conversation'}
           </Button>
         </>
       }
     >
       <p className="mb-2 text-sm text-ink-2">Everyone in the original conversation will see this card.</p>
-      <div className="rounded-xl border border-copper/40 bg-copper-soft/50 p-3.5">
+      <div className="rounded-xl border border-crystal-line bg-tint-crystal p-3.5">
         <div className="layer-rule mb-2 w-28" />
         <h4 className="font-serif text-lg">{room.branch?.title}</h4>
         <p className="mt-1 whitespace-pre-wrap font-serif leading-relaxed">{room.branch?.resolution?.summary}</p>
@@ -245,18 +245,18 @@ export function GuestDialog({ room, onClose }: { room: RoomDTO; onClose: () => v
 
   return (
     <Dialog title="Invite a guest" onClose={onClose} wide>
-      <div className="mb-3 flex gap-2 rounded-lg bg-copper-soft/60 p-2.5 text-sm text-ink-2">
-        <ShieldAlert size={16} className="mt-0.5 shrink-0 text-copper" />
+      <div className="mb-3 flex gap-2 rounded-lg bg-tint-crystal p-2.5 text-sm text-ink-2">
+        <ShieldAlert size={16} className="mt-0.5 shrink-0 text-crystal" />
         <p>Guests can read everything in this branch, including messages from before they joined. They can't see the original conversation or anything else.</p>
       </div>
 
       {created ? (
-        <div className="rounded-xl border border-vein/40 bg-vein-soft/50 p-3">
+        <div className="rounded-xl border border-branch bg-tint-branch p-3">
           <p className="mb-1.5 text-sm font-medium">Copy this link now. It won't be shown again.</p>
           <div className="flex gap-2">
             <Input readOnly value={url} aria-label="Guest link" className="font-mono text-xs" onFocus={(e) => e.target.select()} />
             <Button
-              variant="vein"
+              variant="branch"
               onClick={async () => {
                 await navigator.clipboard.writeText(url);
                 setCopied(true);
@@ -287,7 +287,7 @@ export function GuestDialog({ room, onClose }: { room: RoomDTO; onClose: () => v
                   type="button"
                   aria-pressed={hours === e.hours}
                   onClick={() => setHours(e.hours)}
-                  className={cx('rounded-lg border px-2.5 py-1.5 text-sm transition', hours === e.hours ? 'border-vein bg-vein-soft' : 'border-line hover:border-line-strong')}
+                  className={cx('rounded-lg border px-2.5 py-1.5 text-sm transition', hours === e.hours ? 'border-violet bg-tint-violet' : 'border-line hover:border-line-strong')}
                 >
                   {e.label}
                 </button>
@@ -330,7 +330,7 @@ export function GuestDialog({ room, onClose }: { room: RoomDTO; onClose: () => v
                 </div>
                 {l.revokedAt ? <Pill tone="plain">Revoked</Pill> : expired ? <Pill tone="plain">Expired</Pill> : null}
                 {live && (
-                  <Button className="h-8 hover:border-oxide hover:text-oxide" onClick={() => revoke(l.id)}>
+                  <Button className="h-8 hover:border-alert hover:text-alert" onClick={() => revoke(l.id)}>
                     <Trash2 size={14} /> Revoke
                   </Button>
                 )}
@@ -361,7 +361,7 @@ export function AddParticipantsDialog({ room, parent, onClose }: { room: RoomDTO
       <ul>
         {candidates.map((m) => (
           <li key={m.userId}>
-            <button type="button" onClick={() => add(m.userId)} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-2 text-left transition hover:bg-sunken">
+            <button type="button" onClick={() => add(m.userId)} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-2 text-left st-press hover:bg-tint-plain">
               <Avatar name={m.displayName} url={m.avatarUrl} size={28} /> <span className="text-sm">{m.displayName}</span>
             </button>
           </li>

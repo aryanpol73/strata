@@ -22,6 +22,10 @@ notificationRoutes.get('/', async (req, res) => {
   res.json({ notifications: await delivery.listNotifications(currentUser(req).id) });
 });
 
+notificationRoutes.get('/needs-you', async (req, res) => {
+  res.json({ items: await delivery.needsYou(currentUser(req).id) });
+});
+
 notificationRoutes.post('/read', async (req, res) => {
   await delivery.markNotificationsRead(currentUser(req).id, parse(markNotificationsReadInput, req.body).ids);
   res.status(204).end();

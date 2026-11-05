@@ -201,6 +201,19 @@ describe('blocking acknowledgement', () => {
     expect(res.body.status.ack.state).toBe('satisfied');
   });
 
+  it('lists what is waiting on someone, soonest first, until they answer', async () => {
+    const later = await send(h, sender, room.id, 'Later one', blocking(120));
+    const sooner = await send(h, sender, room.id, 'Sooner one', blocking(30));
+    const items = async (who: TestUser) => (await h.api().get('/api/notifications/needs-you').set(as(who))).body.items;
+
+    expect((await items(recipient)).map((i: { messageId: string }) => i.messageId)).toEqual([sooner.id, later.id]);
+    expect((await items(recipient))[0]).toMatchObject({ roomName: 'Ops', senderName: 'Sender', excerpt: 'Sooner one' });
+    expect(await items(sender)).toEqual([]);
+
+    await h.api().post(`/api/messages/${sooner.id}/ack`).set(as(recipient));
+    expect((await items(recipient)).map((i: { messageId: string }) => i.messageId)).toEqual([later.id]);
+  });
+
   it('only the people asked can acknowledge', async () => {
     const msg = await send(h, sender, room.id, 'x', blocking());
     expect((await h.api().post(`/api/messages/${msg.id}/ack`).set(as(sender))).status).toBe(403);

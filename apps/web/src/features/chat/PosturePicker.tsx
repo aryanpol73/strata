@@ -13,9 +13,9 @@ interface Option {
 
 export const POSTURE_OPTIONS: Option[] = [
   { id: 'standard', label: 'Standard', hint: 'Notifies people now', icon: <Feather size={16} />, tone: 'text-ink-2' },
-  { id: 'whisper', label: 'Whisper', hint: 'In the conversation, with no notification', icon: <BellOff size={16} />, tone: 'text-lilac' },
-  { id: 'digest', label: 'Digest', hint: "Waits for each person's next batch", icon: <Layers size={16} />, tone: 'text-copper' },
-  { id: 'blocking_ack', label: 'Needs acknowledgement', hint: 'Everyone must confirm by a deadline', icon: <BellRing size={16} />, tone: 'text-oxide' },
+  { id: 'whisper', label: 'Whisper', hint: 'In the conversation, with no notification', icon: <BellOff size={16} />, tone: 'text-whisper' },
+  { id: 'digest', label: 'Digest', hint: "Waits for each person's next batch", icon: <Layers size={16} />, tone: 'text-crystal' },
+  { id: 'blocking_ack', label: 'Needs acknowledgement', hint: 'Everyone must confirm by a deadline', icon: <BellRing size={16} />, tone: 'text-alert' },
 ];
 
 const hoursFromNow = (h: number) => new Date(Date.now() + h * 3_600_000);
@@ -74,14 +74,14 @@ export function PosturePicker({
         aria-label={`Delivery: ${current.label}. Change`}
         title={`Delivery: ${current.label}`}
         onClick={() => setOpen((v) => !v)}
-        className={cx('inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-medium transition hover:bg-sunken', current.tone)}
+        className={cx('inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-medium st-press hover:bg-tint-plain', current.tone)}
       >
         {current.icon}
         {posture !== 'standard' && <span className="max-w-24 truncate max-sm:hidden">{current.label}</span>}
       </button>
 
       {open && (
-        <div role="menu" className="absolute bottom-full left-0 z-30 mb-2 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-line bg-surface p-1.5 shadow-float animate-rise">
+        <div role="menu" className="st-glass absolute bottom-full left-0 z-30 mb-2 w-[min(20rem,calc(100vw-2rem))] rounded-[20px] p-1.5 shadow-float animate-rise">
           <p className="px-2.5 pt-1.5 pb-1 text-xs font-medium text-ink-3">How should this reach people?</p>
           {POSTURE_OPTIONS.map((o) => (
             <button
@@ -90,14 +90,14 @@ export function PosturePicker({
               role="menuitemradio"
               aria-checked={posture === o.id}
               onClick={() => choose(o.id)}
-              className={cx('flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-sunken', posture === o.id && 'bg-sunken')}
+              className={cx('flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left st-press hover:bg-tint-plain', posture === o.id && 'bg-tint-plain')}
             >
               <span className={cx('mt-0.5', o.tone)}>{o.icon}</span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium">{o.label}</span>
                 <span className="block text-xs text-ink-2">{o.hint}</span>
               </span>
-              {posture === o.id && <Check size={16} className="mt-0.5 text-vein" />}
+              {posture === o.id && <Check size={16} className="mt-0.5 text-branch" />}
             </button>
           ))}
           {posture === 'blocking_ack' && (
@@ -111,7 +111,7 @@ export function PosturePicker({
                   ['4 hours', hoursFromNow(4)],
                   ['Tomorrow 9am', tomorrowMorning()],
                 ].map(([label, date]) => (
-                  <button key={label as string} type="button" onClick={() => onChange('blocking_ack', date as Date)} className="rounded-full border border-line px-2.5 py-0.5 text-xs transition hover:border-oxide hover:text-oxide">
+                  <button key={label as string} type="button" onClick={() => onChange('blocking_ack', date as Date)} className="rounded-full border border-line px-2.5 py-0.5 text-xs transition hover:border-alert hover:text-alert">
                     {label as string}
                   </button>
                 ))}
@@ -124,7 +124,7 @@ export function PosturePicker({
                 onChange={(e) => e.target.value && onChange('blocking_ack', new Date(e.target.value))}
                 className="py-1 text-sm"
               />
-              <button type="button" onClick={() => setOpen(false)} className="mt-2 w-full rounded-lg bg-oxide py-1.5 text-sm font-medium text-on-accent">
+              <button type="button" onClick={() => setOpen(false)} className="mt-2 w-full rounded-lg bg-alert py-1.5 text-sm font-semibold text-on-alert st-press">
                 Use this deadline
               </button>
             </div>

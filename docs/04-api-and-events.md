@@ -102,7 +102,8 @@ Room id never appears in guest paths, because it comes from the capability.
 | DELETE | `/canvas/blocks/:id` | Remove |
 
 ### Attention and media
-`GET/PUT /notifications/preferences`, `GET /notifications`, `POST /notifications/read`,
+`GET/PUT /notifications/preferences`, `GET /notifications`, `GET /notifications/needs-you` (acknowledgements still
+waiting on me), `POST /notifications/read`,
 `GET /notifications/push-key`, `POST /notifications/push-subscriptions`, `DELETE /notifications/push-subscriptions`,
 `POST /media/sign`, `POST /media/:id/complete`, `GET /media/:id/url`.
 

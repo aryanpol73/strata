@@ -1,4 +1,4 @@
-import type { AuthResponse, MessageDTO, MessagePage, NotificationDTO, Posture, RoomDTO, SyncResponse } from '@strata/shared';
+import type { AuthResponse, MessageDTO, MessagePage, NeedsYouDTO, NotificationDTO, Posture, RoomDTO, SyncResponse } from '@strata/shared';
 import { ApiError, CLIENT_HEADER, api, client, setSignedOutHandler } from '../api/client';
 import { connectSocket, disconnectSocket } from '../realtime/socket';
 import { cacheMessages, cachedMessages, clearLocalData, db } from './db';
@@ -17,7 +17,7 @@ async function enter(res: AuthResponse) {
   // HTTP can fail while the socket stays up, so waiting for a reconnect alone could strand the outbox.
   window.removeEventListener('online', flushOnline);
   window.addEventListener('online', flushOnline);
-  await Promise.all([loadRooms(), loadNotifications()]);
+  await Promise.all([loadRooms(), loadNotifications(), loadNeedsYou()]);
   await syncTimezone();
   await restoreOutbox();
 }
@@ -127,6 +127,16 @@ export async function loadRoom(id: string): Promise<RoomDTO> {
 export async function loadNotifications() {
   const { notifications } = await api<{ notifications: NotificationDTO[] }>('/notifications');
   get().setNotifications(notifications);
+}
+
+export async function loadNeedsYou() {
+  const { items } = await api<{ items: NeedsYouDTO[] }>('/notifications/needs-you');
+  useStore.setState({ needsYou: items });
+}
+
+export async function acknowledge(messageId: string) {
+  await api(`/messages/${messageId}/ack`, { method: 'POST' });
+  await loadNeedsYou();
 }
 
 export async function loadMessages(roomId: string, aroundSeq?: number) {

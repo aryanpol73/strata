@@ -9,6 +9,8 @@ import { bootstrap } from './state/actions';
 import { useStore } from './state/store';
 
 const RoomPage = lazy(() => import('./features/chat/RoomPage').then((m) => ({ default: m.RoomPage })));
+const AttentionPage = lazy(() => import('./features/attention/AttentionPage').then((m) => ({ default: m.AttentionPage })));
+const BranchesPage = lazy(() => import('./features/branches/BranchesPage').then((m) => ({ default: m.BranchesPage })));
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 
 const Pane = ({ children }: { children: React.ReactNode }) => (
@@ -45,6 +47,8 @@ export function Member() {
       <Route element={<AppShell />}>
         <Route index element={<HomeEmpty />} />
         <Route path="r/:roomId" element={<Pane><RoomPage /></Pane>} />
+        <Route path="branches" element={<Pane><BranchesPage /></Pane>} />
+        <Route path="attention" element={<Pane><AttentionPage /></Pane>} />
         <Route path="settings" element={<Pane><SettingsPage /></Pane>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

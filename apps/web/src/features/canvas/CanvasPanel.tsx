@@ -38,7 +38,7 @@ function SourceChip({ block, onJump }: { block: CanvasBlockDTO; onJump?: (seq: n
   if (!source) return null;
   if (!source.available) return <p className="mt-1.5 text-xs text-ink-3">Original message deleted</p>;
   return (
-    <button type="button" onClick={() => onJump?.(source.seq)} className="mt-1.5 inline-flex max-w-full items-center gap-1 font-sans text-xs text-ink-2 transition hover:text-copper">
+    <button type="button" onClick={() => onJump?.(source.seq)} className="mt-1.5 inline-flex max-w-full items-center gap-1 font-sans text-xs text-ink-2 transition hover:text-crystal">
       <MessageSquareQuote size={12} className="shrink-0" />
       <span className="truncate">
         {source.senderName} · {shortTime(source.sentAt)}
@@ -72,7 +72,7 @@ function BlockContent({ block, panel, save }: { block: CanvasBlockDTO; panel: Pa
       return <EditableText block={block} readOnly={panel.readOnly} className="font-serif text-[16px] leading-relaxed" onSave={(text) => save({ kind: 'text', text })} />;
     case 'quote':
       return (
-        <div className="border-l-2 border-copper pl-3">
+        <div className="border-l-2 border-crystal pl-3">
           <EditableText block={block} readOnly={panel.readOnly} className="font-serif text-[16px] leading-relaxed italic" onSave={(text) => save({ kind: 'quote', text })} />
         </div>
       );
@@ -80,14 +80,14 @@ function BlockContent({ block, panel, save }: { block: CanvasBlockDTO; panel: Pa
       return (
         <div>
           <div className="mb-1 flex items-center gap-1.5">
-            <Scale size={13} className="text-copper" />
+            <Scale size={13} className="text-crystal" />
             <button
               type="button"
               disabled={panel.readOnly}
               onClick={() => save({ ...content, status: content.status === 'decided' ? 'superseded' : content.status === 'superseded' ? 'proposed' : 'decided' })}
               title="Change status"
             >
-              <Pill tone={content.status === 'decided' ? 'copper' : content.status === 'proposed' ? 'lilac' : 'plain'}>{content.status}</Pill>
+              <Pill tone={content.status === 'decided' ? 'crystal' : content.status === 'proposed' ? 'whisper' : 'plain'}>{content.status}</Pill>
             </button>
           </div>
           <EditableText
@@ -100,7 +100,7 @@ function BlockContent({ block, panel, save }: { block: CanvasBlockDTO; panel: Pa
       );
     case 'link':
       return (
-        <a href={content.url} target="_blank" rel="noreferrer noopener" className="flex items-center gap-2 text-sm text-vein hover:underline">
+        <a href={content.url} target="_blank" rel="noreferrer noopener" className="flex items-center gap-2 text-sm text-branch hover:underline">
           <Link2 size={15} className="shrink-0" />
           <span className="truncate">{content.title || content.url}</span>
           <ExternalLink size={12} className="shrink-0 opacity-60" />
@@ -137,10 +137,10 @@ function SortableBlock({ block, panel, save, remove }: { block: CanvasBlockDTO; 
     >
       {!panel.readOnly && (
         <div className="absolute top-1.5 right-1 flex opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 max-lg:opacity-100">
-          <IconButton label="Remove from Canvas" className="size-7 hover:text-oxide" onClick={() => remove(block)}>
+          <IconButton label="Remove from Canvas" className="size-7 hover:text-alert" onClick={() => remove(block)}>
             <Trash2 size={14} />
           </IconButton>
-          <button type="button" aria-label="Drag to reorder" className="flex size-7 cursor-grab touch-none items-center justify-center rounded-lg text-ink-3 hover:bg-sunken active:cursor-grabbing" {...attributes} {...listeners}>
+          <button type="button" aria-label="Drag to reorder" className="flex size-7 cursor-grab touch-none items-center justify-center rounded-lg text-ink-3 hover:bg-tint-plain active:cursor-grabbing" {...attributes} {...listeners}>
             <GripVertical size={15} />
           </button>
         </div>
@@ -176,7 +176,7 @@ function AddBar({ onAdd }: { onAdd: (content: CanvasContent) => void }) {
     );
   }
   const item = (label: string, icon: ReactNode, run: () => void) => (
-    <button type="button" onClick={run} className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-ink-3 transition hover:bg-sunken hover:text-ink">
+    <button type="button" onClick={run} className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-ink-3 st-press hover:bg-tint-plain hover:text-ink">
       {icon} {label}
     </button>
   );
@@ -213,7 +213,7 @@ function Section({
   useEffect(() => setTitle(section.title), [section.title]);
 
   return (
-    <section ref={setNodeRef} className={cx('rounded-lg transition-colors', isOver && 'bg-copper-soft/40')}>
+    <section ref={setNodeRef} className={cx('rounded-lg transition-colors', isOver && 'bg-tint-crystal/40')}>
       <div className="layer-rule mb-2" />
       <header className="group flex items-center gap-1">
         {panel.readOnly ? (

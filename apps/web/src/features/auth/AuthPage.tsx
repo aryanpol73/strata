@@ -26,16 +26,16 @@ export function AuthPage() {
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
-      <section className="relative hidden flex-col justify-between overflow-hidden bg-sheet p-12 lg:flex">
+      <section className="st-void relative hidden flex-col justify-between overflow-hidden border-r border-line p-12 lg:flex">
         <Wordmark size={26} />
         <div className="max-w-md">
-          <h1 className="font-serif text-5xl leading-[1.08] font-medium">Conversations should crystallize, not evaporate.</h1>
+          <h1 className="text-5xl leading-[1.08] font-bold tracking-tight">Conversations should crystallize, not evaporate.</h1>
           <p className="mt-5 text-lg text-ink-2">Branch a side discussion, merge its outcome, and keep what your group decides somewhere it stays useful.</p>
         </div>
         <svg viewBox="0 0 600 120" className="absolute right-0 bottom-0 left-0 w-full opacity-70" aria-hidden preserveAspectRatio="none">
           <path d="M0 40c90-30 170 26 280 4s190-30 320-6" fill="none" stroke="var(--line-strong)" strokeWidth="1.5" />
-          <path d="M0 66c100-26 180 24 290 6s180-26 310-8" fill="none" stroke="var(--copper)" strokeWidth="1.5" />
-          <path d="M0 92c110-22 190 22 300 8s170-22 300-10" fill="none" stroke="var(--vein)" strokeWidth="1.5" />
+          <path d="M0 66c100-26 180 24 290 6s180-26 310-8" fill="none" stroke="var(--crystal)" strokeWidth="1.5" />
+          <path d="M0 92c110-22 190 22 300 8s170-22 300-10" fill="none" stroke="var(--branch)" strokeWidth="1.5" />
         </svg>
         <span />
       </section>
@@ -44,7 +44,7 @@ export function AuthPage() {
           <div className="mb-6 lg:hidden">
             <Wordmark size={24} />
           </div>
-          <h2 className="font-serif text-2xl font-medium">{mode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{mode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
           {mode === 'register' && (
             <>
               <Field label="Your name">
@@ -62,18 +62,18 @@ export function AuthPage() {
             <Input required type="password" minLength={mode === 'register' ? 10 : 1} value={form.password} onChange={set('password')} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
           </Field>
           {error && (
-            <p role="alert" className="rounded-lg bg-oxide-soft px-3 py-2 text-sm text-oxide">
+            <p role="alert" className="rounded-lg bg-tint-alert px-3 py-2 text-sm text-alert">
               {error}
             </p>
           )}
-          <Button type="submit" variant="primary" disabled={busy} className="h-10 w-full">
+          <Button type="submit" variant="primary" busy={busy} className="w-full">
             {mode === 'login' ? 'Sign in' : 'Create account'}
           </Button>
           <p className="text-center text-sm text-ink-2">
             {mode === 'login' ? 'New here?' : 'Already have an account?'}{' '}
             <button
               type="button"
-              className="font-medium text-vein underline underline-offset-2"
+              className="font-medium text-branch underline underline-offset-2"
               onClick={() => {
                 setMode(mode === 'login' ? 'register' : 'login');
                 setError(null);

@@ -1,117 +1,140 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/instrument-sans';
+@import '@fontsource-variable/plus-jakarta-sans';
 @import '@fontsource-variable/newsreader';
 @import '@fontsource-variable/jetbrains-mono';
 
 /*
- * Strata's design tokens, in one place, so visual references can be applied here without touching components.
+ * Strata's approved design tokens. Source of truth: the Strata Design System.
  *
- * Language: sedimentary layers. The stream is clean sans on limestone. What settles onto the Canvas turns to print,
- * in serif on a warmer sheet. Branches are a mineral vein of teal. Copper marks what has crystallized.
+ * Each colour owns one meaning. Violet is action, cyan is a branch, amber is settled knowledge, and coral means someone
+ * has to act. Contrast is measured: every text token passes AA on every ground it's used on, in both themes, including
+ * on glass. Don't lower the glass opacities, which are the floor that keeps ink-3 readable over a button scrolling past.
  */
 :root {
-  --paper: #f5f1e8;
-  --surface: #fbf9f3;
-  --sheet: #f0e9da;
-  --sunken: #ebe5d7;
-  --line: #dcd4c2;
-  --line-strong: #c6bca7;
-  --ink: #23201a;
-  --ink-2: #5a5346;
-  --ink-3: #6a6354;
-  --vein: #0f665e;
-  --vein-soft: #d5e8e2;
-  --copper: #8f4620;
-  --copper-soft: #f1dfcc;
-  --oxide: #a02f24;
-  --oxide-soft: #f6dcd6;
-  --lilac: #5f5484;
-  --lilac-soft: #e5e1ee;
-  --on-accent: #fbf9f3;
-  --shadow: 0 1px 2px rgb(50 40 20 / 0.06), 0 8px 24px -12px rgb(50 40 20 / 0.18);
-  --shadow-lg: 0 2px 4px rgb(50 40 20 / 0.08), 0 24px 56px -16px rgb(50 40 20 / 0.32);
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --paper: #161512;
-    --surface: #1e1c18;
-    --sheet: #24211b;
-    --sunken: #100f0d;
-    --line: #322e27;
-    --line-strong: #4a4439;
-    --ink: #ece6d9;
-    --ink-2: #aaa294;
-    --ink-3: #9a9284;
-    --vein: #55bfb3;
-    --vein-soft: #16302c;
-    --copper: #dc9465;
-    --copper-soft: #3a281b;
-    --oxide: #e8796b;
-    --oxide-soft: #3d1f1a;
-    --lilac: #aca2d6;
-    --lilac-soft: #29263a;
-    --on-accent: #161512;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.6);
-    --shadow-lg: 0 2px 4px rgb(0 0 0 / 0.4), 0 24px 56px -16px rgb(0 0 0 / 0.75);
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme='dark'] {
-  --paper: #161512;
-  --surface: #1e1c18;
-  --sheet: #24211b;
-  --sunken: #100f0d;
-  --line: #322e27;
-  --line-strong: #4a4439;
-  --ink: #ece6d9;
-  --ink-2: #aaa294;
-  --ink-3: #9a9284;
-  --vein: #55bfb3;
-  --vein-soft: #16302c;
-  --copper: #dc9465;
-  --copper-soft: #3a281b;
-  --oxide: #e8796b;
-  --oxide-soft: #3d1f1a;
-  --lilac: #aca2d6;
-  --lilac-soft: #29263a;
-  --on-accent: #161512;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.6);
-  --shadow-lg: 0 2px 4px rgb(0 0 0 / 0.4), 0 24px 56px -16px rgb(0 0 0 / 0.75);
+  --void: #0b0914;
+  --basin: #120f20;
+  --surface: #1a162e;
+  --raised: #241f3f;
+  --sheet: #16122a;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.2);
+  --ink: #f3f0fb;
+  --ink-2: #bdb6d4;
+  --ink-3: #9a93b4;
+  --violet: #b5a2ff;
+  --violet-fill: #6a48f2;
+  --violet-deep: #5130d8;
+  --on-violet: #ffffff;
+  --bubble-mine: #4a33b8;
+  --on-bubble-mine: #ffffff;
+  --branch: #5fdce6;
+  --on-branch: #06222a;
+  --crystal: #f4be78;
+  --crystal-line: rgba(244, 190, 120, 0.34);
+  --alert: #ff9aa5;
+  --on-alert: #2a0a10;
+  --whisper: #bfb4f0;
+  --online: #5fe3a7;
+  --tint-plain: rgba(255, 255, 255, 0.07);
+  --tint-violet: rgba(143, 117, 255, 0.18);
+  --tint-branch: rgba(95, 220, 230, 0.14);
+  --tint-crystal: rgba(244, 190, 120, 0.14);
+  --tint-alert: rgba(255, 154, 165, 0.14);
+  --glass: rgba(30, 25, 54, 0.84);
+  --scrim: rgba(6, 4, 14, 0.62);
+  --aurora: rgba(106, 72, 242, 0.3);
+  --sheen: rgba(255, 255, 255, 0.16);
+  --ripple: rgba(255, 255, 255, 0.22);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 40px -12px rgba(0, 0, 0, 0.7);
+  --glow: 0 8px 24px -8px rgba(106, 72, 242, 0.75);
+  --glow-strong: 0 12px 32px -8px rgba(106, 72, 242, 0.95), 0 0 0 1px rgba(181, 162, 255, 0.3);
+  --blur-nav: 20px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   color-scheme: dark;
 }
 
+:root[data-theme='day'] {
+  --void: #f4f1fb;
+  --basin: #faf8fe;
+  --surface: #ffffff;
+  --raised: #ffffff;
+  --sheet: #f1ecfa;
+  --line: rgba(26, 21, 48, 0.1);
+  --line-strong: rgba(26, 21, 48, 0.26);
+  --ink: #1a1530;
+  --ink-2: #4e4768;
+  --ink-3: #655e80;
+  --violet: #5a38e0;
+  --violet-fill: #5a38e0;
+  --violet-deep: #4526c4;
+  --bubble-mine: #5a38e0;
+  --branch: #0b6a75;
+  --on-branch: #ffffff;
+  --crystal: #8a5206;
+  --crystal-line: rgba(138, 82, 6, 0.3);
+  --alert: #b3263b;
+  --on-alert: #ffffff;
+  --whisper: #5b4fa0;
+  --online: #0a6e47;
+  --tint-plain: rgba(26, 21, 48, 0.06);
+  --tint-violet: rgba(90, 56, 224, 0.1);
+  --tint-branch: rgba(11, 106, 117, 0.1);
+  --tint-crystal: rgba(138, 82, 6, 0.1);
+  --tint-alert: rgba(179, 38, 59, 0.1);
+  --glass: rgba(255, 255, 255, 0.9);
+  --scrim: rgba(26, 21, 48, 0.36);
+  --aurora: rgba(106, 72, 242, 0.12);
+  --sheen: rgba(90, 56, 224, 0.1);
+  --ripple: rgba(90, 56, 224, 0.16);
+  --shadow: 0 1px 2px rgba(26, 21, 48, 0.1);
+  --shadow-lg: 0 16px 40px -12px rgba(26, 21, 48, 0.28);
+  --glow: 0 8px 20px -10px rgba(90, 56, 224, 0.55);
+  --glow-strong: 0 12px 26px -10px rgba(90, 56, 224, 0.7), 0 0 0 1px rgba(90, 56, 224, 0.2);
+  color-scheme: light;
+}
+
 @theme inline {
-  --font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Newsreader Variable', Georgia, serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
 
-  --color-paper: var(--paper);
+  --color-void: var(--void);
+  --color-basin: var(--basin);
   --color-surface: var(--surface);
+  --color-raised: var(--raised);
   --color-sheet: var(--sheet);
-  --color-sunken: var(--sunken);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
-  --color-vein: var(--vein);
-  --color-vein-soft: var(--vein-soft);
-  --color-copper: var(--copper);
-  --color-copper-soft: var(--copper-soft);
-  --color-oxide: var(--oxide);
-  --color-oxide-soft: var(--oxide-soft);
-  --color-lilac: var(--lilac);
-  --color-lilac-soft: var(--lilac-soft);
-  --color-on-accent: var(--on-accent);
+  --color-violet: var(--violet);
+  --color-violet-fill: var(--violet-fill);
+  --color-on-violet: var(--on-violet);
+  --color-bubble-mine: var(--bubble-mine);
+  --color-on-bubble-mine: var(--on-bubble-mine);
+  --color-branch: var(--branch);
+  --color-on-branch: var(--on-branch);
+  --color-crystal: var(--crystal);
+  --color-crystal-line: var(--crystal-line);
+  --color-alert: var(--alert);
+  --color-on-alert: var(--on-alert);
+  --color-whisper: var(--whisper);
+  --color-online: var(--online);
+  --color-tint-plain: var(--tint-plain);
+  --color-tint-violet: var(--tint-violet);
+  --color-tint-branch: var(--tint-branch);
+  --color-tint-crystal: var(--tint-crystal);
+  --color-tint-alert: var(--tint-alert);
+  --color-scrim: var(--scrim);
 
   --shadow-card: var(--shadow);
   --shadow-float: var(--shadow-lg);
 
-  --animate-settle: settle 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  --animate-rise: rise 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-settle: settle 260ms var(--ease-out);
+  --animate-rise: rise 220ms var(--ease-out);
   --animate-fade: fade 160ms ease-out;
   --animate-pulse-line: pulse-line 1800ms ease-out;
 }
@@ -125,7 +148,7 @@
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.985);
+    transform: translateY(10px) scale(0.98);
   }
 }
 @keyframes fade {
@@ -136,8 +159,27 @@
 @keyframes pulse-line {
   0%,
   35% {
-    background-color: var(--copper-soft);
-    box-shadow: inset 3px 0 0 var(--copper);
+    background-color: var(--tint-crystal);
+    box-shadow: inset 3px 0 0 var(--crystal);
+  }
+}
+@keyframes ripple {
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.7);
+  }
+  60% {
+    transform: scale(1.08);
   }
 }
 
@@ -149,11 +191,11 @@ body,
 
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--void);
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.47;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior: none;
@@ -162,7 +204,7 @@ body {
 /* In a layer, so that utilities such as `outline-none` on inputs can still override these. */
 @layer base {
   :focus-visible {
-    outline: 2px solid var(--vein);
+    outline: 2px solid var(--violet);
     outline-offset: 2px;
   }
 
@@ -175,7 +217,7 @@ body {
 }
 
 ::selection {
-  background: var(--copper-soft);
+  background: var(--tint-violet);
 }
 
 .scroll-thin {
@@ -183,13 +225,163 @@ body {
   scrollbar-color: var(--line-strong) transparent;
 }
 
-/* The strata mark that separates Canvas sections: three uneven layers. */
+/* One static light source at the top of the void. It sits behind everything and never moves. */
+.st-void {
+  background:
+    radial-gradient(120% 60% at 50% -10%, var(--aurora), transparent 70%),
+    var(--void);
+}
+
+/* In the components layer, so a utility can still recolour an edge, as the composer does for posture. */
+@layer components {
+  /* Glass means "this floats above your content", and nothing else uses it. */
+  .st-glass {
+    background: var(--glass);
+    border: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(var(--blur-nav)) saturate(140%);
+    backdrop-filter: blur(var(--blur-nav)) saturate(140%);
+  }
+  .st-btn {
+    height: 2.5rem;
+    padding-inline: 1rem;
+  }
+  .st-iconbtn {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  /* A finger needs a bigger target than a mouse does. */
+  @media (pointer: coarse) {
+    .st-btn {
+      height: 2.75rem;
+    }
+    .st-iconbtn {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .st-glass {
+    background: var(--raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Links and muted text take the bubble's own colour, since the accents don't all contrast with it. */
+.st-bubble-mine a,
+.st-bubble-mine .text-ink-2,
+.st-bubble-mine .text-ink-3 {
+  color: inherit;
+}
+
+/* Three uneven layers: the one ornament that belongs to Strata. Marks what has settled. */
 .layer-rule {
   height: 7px;
   background:
-    linear-gradient(var(--copper) 0 0) 0 0 / 34% 1px no-repeat,
-    linear-gradient(var(--line-strong) 0 0) 0 3px / 72% 1px no-repeat,
-    linear-gradient(var(--line) 0 0) 0 6px / 100% 1px no-repeat;
+    linear-gradient(var(--crystal), var(--crystal)) 0 0 / 34% 1.5px no-repeat,
+    linear-gradient(var(--violet), var(--violet)) 0 3px / 66% 1px no-repeat,
+    linear-gradient(var(--line-strong), var(--line-strong)) 0 6px / 100% 1px no-repeat;
+}
+
+/*
+ * Button motion. Everything pressable shares this, so the whole product responds the same way:
+ * light follows the pointer, the control lifts on hover, gives under a press, and a ripple spreads from the touch point.
+ */
+/* Position sits in a layer so that a button can still be placed with a utility such as `absolute`. */
+@layer components {
+  .st-press {
+    position: relative;
+  }
+}
+.st-press {
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform 200ms var(--ease-out),
+    box-shadow 240ms var(--ease-out),
+    background-color 180ms ease,
+    background-position 420ms var(--ease-out),
+    border-color 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease;
+}
+.st-press::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(90px circle at var(--mx, 50%) var(--my, 50%), var(--sheen), transparent 72%);
+  transition: opacity 260ms ease;
+}
+.st-press .i-nudge {
+  transition: transform 240ms var(--ease-spring);
+}
+.st-press:active:not(:disabled) {
+  transform: scale(0.965);
+  transition-duration: 90ms;
+}
+@media (hover: hover) {
+  .st-press:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  .st-press:hover:not(:disabled)::before {
+    opacity: 1;
+  }
+  .st-press:hover:not(:disabled) .i-nudge {
+    transform: translateX(2px);
+  }
+  .st-press:hover:not(:disabled) .i-spin {
+    transform: rotate(90deg);
+  }
+  .st-press:active:not(:disabled) {
+    transform: scale(0.965);
+  }
+}
+.st-press .i-spin {
+  transition: transform 300ms var(--ease-spring);
+}
+
+.st-primary {
+  color: var(--on-violet);
+  background-image: linear-gradient(120deg, var(--violet-fill), var(--violet-deep) 50%, var(--violet-fill));
+  background-size: 220% 100%;
+  background-position: 0% 0;
+  box-shadow: var(--glow);
+}
+@media (hover: hover) {
+  .st-primary:hover:not(:disabled) {
+    background-position: 100% 0;
+    box-shadow: var(--glow-strong);
+  }
+}
+
+.st-ripple {
+  position: absolute;
+  z-index: -1;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  pointer-events: none;
+  background: var(--ripple);
+  transform: translate(-50%, -50%) scale(0);
+  animation: ripple 520ms var(--ease-out) forwards;
+}
+
+.st-spinner {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 700ms linear infinite;
+}
+
+/* The send button arrives as soon as there's something to send. */
+.st-pop {
+  animation: pop 260ms var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -198,5 +390,13 @@ body {
   *::after {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
+  }
+  .st-press,
+  .st-press:hover:not(:disabled),
+  .st-press:active:not(:disabled) {
+    transform: none;
+  }
+  .st-ripple {
+    display: none;
   }
 }

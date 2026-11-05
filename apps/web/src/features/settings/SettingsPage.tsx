@@ -1,16 +1,15 @@
-import { ArrowLeft, Laptop, LogOut, Moon, Plus, Sun, Trash2 } from 'lucide-react';
+import { Laptop, LogOut, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
 import type { DeviceSessionDTO, NotificationPreferences, NotificationRule, SelfDTO } from '@strata/shared';
 import { api } from '../../api/client';
-import { Button, Field, IconButton, Input, Pill, Spinner, Textarea, cx, shortTime } from '../../components/ui';
+import { Button, Field, IconButton, Input, Pill, Segmented, Spinner, Textarea, shortTime } from '../../components/ui';
 import { logout } from '../../state/actions';
 import { toast, toastError, useStore } from '../../state/store';
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+function Section({ id, title, hint, children }: { id: string; title: string; hint?: string; children: ReactNode }) {
   return (
-    <section className="border-t border-line py-6 first:border-t-0">
-      <h2 className="font-serif text-xl font-medium">{title}</h2>
+    <section id={id} className="scroll-mt-4 border-t border-line py-6 first:border-t-0">
+      <h2 className="text-lg font-bold">{title}</h2>
       {hint && <p className="mt-0.5 text-sm text-ink-2">{hint}</p>}
       <div className="mt-3">{children}</div>
     </section>
@@ -42,7 +41,7 @@ function Profile() {
         @{me.handle} · {me.email}
       </p>
       <Button variant="primary" onClick={save}>
-        Save
+        Save profile
       </Button>
     </div>
   );
@@ -72,9 +71,9 @@ function Devices() {
             <p className="truncate text-xs text-ink-2">Active {shortTime(s.lastSeenAt)}</p>
           </div>
           {s.current ? (
-            <Pill tone="vein">This device</Pill>
+            <Pill tone="branch">This device</Pill>
           ) : (
-            <Button className="h-8 hover:border-oxide hover:text-oxide" onClick={() => revoke(s.id)}>
+            <Button className="h-8 hover:border-alert hover:text-alert" onClick={() => revoke(s.id)}>
               Sign out
             </Button>
           )}
@@ -119,7 +118,7 @@ function Attention() {
   return (
     <div className="space-y-4">
       <Field label="Your timezone" hint="Digests and quiet hours follow this clock.">
-        <select value={prefs.timezone} onChange={(e) => update({ timezone: e.target.value })} className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-[15px] outline-none focus:border-vein">
+        <select value={prefs.timezone} onChange={(e) => update({ timezone: e.target.value })} className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-[15px] outline-none focus:border-violet">
           {[...new Set([prefs.timezone, ...ZONES])].map((z) => (
             <option key={z}>{z}</option>
           ))}
@@ -149,7 +148,7 @@ function Attention() {
 
       <div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" className="size-4 accent-[var(--vein)]" checked={prefs.quietHours.enabled} onChange={(e) => update({ quietHours: { ...prefs.quietHours, enabled: e.target.checked } })} />
+          <input type="checkbox" className="size-4 accent-[var(--violet-fill)]" checked={prefs.quietHours.enabled} onChange={(e) => update({ quietHours: { ...prefs.quietHours, enabled: e.target.checked } })} />
           Quiet hours
         </label>
         {prefs.quietHours.enabled && (
@@ -160,7 +159,7 @@ function Attention() {
           </div>
         )}
         <label className="mt-2 flex items-start gap-2 text-sm">
-          <input type="checkbox" className="mt-0.5 size-4 accent-[var(--vein)]" checked={prefs.blockingBypassesQuiet} onChange={(e) => update({ blockingBypassesQuiet: e.target.checked })} />
+          <input type="checkbox" className="mt-0.5 size-4 accent-[var(--violet-fill)]" checked={prefs.blockingBypassesQuiet} onChange={(e) => update({ blockingBypassesQuiet: e.target.checked })} />
           <span>
             Let acknowledgement requests through during quiet hours
             <span className="block text-xs text-ink-2">Turn this off and they wait until your quiet hours end.</span>
@@ -170,11 +169,11 @@ function Attention() {
 
       <div className="flex gap-4 text-sm">
         <label className="flex items-center gap-2">
-          <input type="checkbox" className="size-4 accent-[var(--vein)]" checked={prefs.channels.inApp} onChange={(e) => update({ channels: { ...prefs.channels, inApp: e.target.checked } })} />
+          <input type="checkbox" className="size-4 accent-[var(--violet-fill)]" checked={prefs.channels.inApp} onChange={(e) => update({ channels: { ...prefs.channels, inApp: e.target.checked } })} />
           In the app
         </label>
         <label className="flex items-center gap-2">
-          <input type="checkbox" className="size-4 accent-[var(--vein)]" checked={prefs.channels.push} onChange={(e) => update({ channels: { ...prefs.channels, push: e.target.checked } })} />
+          <input type="checkbox" className="size-4 accent-[var(--violet-fill)]" checked={prefs.channels.push} onChange={(e) => update({ channels: { ...prefs.channels, push: e.target.checked } })} />
           Push notifications
         </label>
       </div>
@@ -184,7 +183,7 @@ function Attention() {
         <p className="mb-2 text-xs text-ink-2">Your rules always win over how a sender chose to reach you. The first match applies.</p>
         <ul className="mb-2 space-y-1">
           {prefs.rules.map((r) => (
-            <li key={r.id} className="flex items-center gap-2 rounded-lg bg-sunken px-2.5 py-1.5 text-sm">
+            <li key={r.id} className="flex items-center gap-2 rounded-lg bg-tint-plain px-2.5 py-1.5 text-sm">
               <span className="min-w-0 flex-1">
                 {RULE_LABEL[r.action]} for {r.posture ? POSTURE_LABEL[r.posture] : 'everything'} in {roomName(r.roomId)}
               </span>
@@ -247,63 +246,63 @@ async function enablePush() {
 }
 
 function Theme() {
-  const [theme, setTheme] = useState(() => localStorage.getItem('strata:theme') ?? 'system');
+  const [theme, setTheme] = useState(() => (localStorage.getItem('strata:theme') === 'day' ? 'day' : 'deep'));
   const choose = (value: string) => {
     setTheme(value);
     localStorage.setItem('strata:theme', value);
-    if (value === 'system') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.dataset.theme = value;
+    if (value === 'day') document.documentElement.dataset.theme = 'day';
+    else document.documentElement.removeAttribute('data-theme');
   };
-  return (
-    <div className="flex gap-1.5">
-      {[
-        ['system', 'System', <Laptop key="s" size={15} />],
-        ['light', 'Light', <Sun key="l" size={15} />],
-        ['dark', 'Dark', <Moon key="d" size={15} />],
-      ].map(([value, label, icon]) => (
-        <button key={value as string} type="button" aria-pressed={theme === value} onClick={() => choose(value as string)} className={cx('inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition', theme === value ? 'border-vein bg-vein-soft' : 'border-line hover:border-line-strong')}>
-          {icon} {label}
-        </button>
-      ))}
-    </div>
-  );
+  return <Segmented label="Theme" value={theme} onChange={choose} options={[['deep', 'Deep'], ['day', 'Day']]} />;
 }
 
+const SECTIONS = [
+  ['profile', 'Profile'],
+  ['attention', 'Attention'],
+  ['devices', 'Devices'],
+  ['appearance', 'Appearance'],
+  ['privacy', 'Privacy'],
+];
+
 export function SettingsPage() {
-  const navigate = useNavigate();
   return (
-    <div className="scroll-thin h-full overflow-y-auto bg-paper">
-      <div className="mx-auto max-w-2xl px-5 py-4">
-        <header className="mb-2 flex items-center gap-2">
-          <IconButton label="Back" onClick={() => navigate('/')} className="lg:hidden">
-            <ArrowLeft size={18} />
-          </IconButton>
-          <h1 className="font-serif text-2xl font-medium">Settings</h1>
-        </header>
-        <Section title="Profile">
-          <Profile />
-        </Section>
-        <Section title="Attention" hint="How and when other people's messages may interrupt you.">
-          <Attention />
-          {'PushManager' in window && (
-            <Button className="mt-3" onClick={enablePush}>
-              Enable push on this device
+    <div className="flex h-full">
+      <nav aria-label="Settings sections" className="hidden w-80 shrink-0 flex-col gap-1 border-r border-line bg-basin p-4 lg:flex">
+        <h1 className="mb-3 text-2xl font-bold tracking-tight">You</h1>
+        {SECTIONS.map(([id, label]) => (
+          <a key={id} href={`#${id}`} className="st-press rounded-xl px-3 py-2.5 text-sm font-semibold text-ink-2 hover:bg-tint-plain hover:text-ink">
+            {label}
+          </a>
+        ))}
+      </nav>
+      <div className="scroll-thin min-w-0 flex-1 overflow-y-auto pb-28 lg:pb-6">
+        <div className="mx-auto max-w-2xl px-5 py-4">
+          <h1 className="mb-2 text-2xl font-bold tracking-tight lg:hidden">You</h1>
+          <Section id="profile" title="Profile">
+            <Profile />
+          </Section>
+          <Section id="attention" title="Attention" hint="How and when other people's messages may interrupt you.">
+            <Attention />
+            {'PushManager' in window && (
+              <Button className="mt-3" onClick={enablePush}>
+                Enable push on this device
+              </Button>
+            )}
+          </Section>
+          <Section id="devices" title="Devices" hint="Everywhere you're signed in.">
+            <Devices />
+          </Section>
+          <Section id="appearance" title="Appearance">
+            <Theme />
+          </Section>
+          <Section id="privacy" title="Privacy">
+            <p className="text-sm text-ink-2">Strata is not end-to-end encrypted. Messages are protected in transit and stored on the server, which can read them to power search and notifications.</p>
+          </Section>
+          <div className="border-t border-line py-6">
+            <Button onClick={() => void logout()}>
+              <LogOut size={15} /> Sign out
             </Button>
-          )}
-        </Section>
-        <Section title="Devices" hint="Everywhere you're signed in.">
-          <Devices />
-        </Section>
-        <Section title="Appearance">
-          <Theme />
-        </Section>
-        <Section title="Privacy">
-          <p className="text-sm text-ink-2">Strata is not end-to-end encrypted. Messages are protected in transit and stored on the server, which can read them to power search and notifications.</p>
-        </Section>
-        <div className="border-t border-line py-6">
-          <Button onClick={() => void logout()}>
-            <LogOut size={15} /> Sign out
-          </Button>
+          </div>
         </div>
       </div>
     </div>

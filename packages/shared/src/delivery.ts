@@ -60,6 +60,17 @@ export interface NotificationDTO {
   readAt: string | null;
 }
 
+/** Something waiting on this person, for the Needs You strip. */
+export interface NeedsYouDTO {
+  messageId: string;
+  roomId: string;
+  seq: number;
+  roomName: string;
+  senderName: string;
+  excerpt: string;
+  deadline: string;
+}
+
 export interface AckStatusDTO {
   messageId: string;
   deadline: string;

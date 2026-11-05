@@ -43,7 +43,7 @@ export function CreateBlockDialog({ roomId, kind, onClose }: { roomId: string; k
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={!valid || busy} onClick={create}>
+          <Button variant="primary" disabled={!valid} busy={busy} onClick={create}>
             Add to conversation
           </Button>
         </>

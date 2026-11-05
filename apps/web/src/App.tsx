@@ -24,7 +24,7 @@ function Toast() {
   }, [toast]);
   if (!toast || !visible) return null;
   return (
-    <div role="status" className={cx('fixed top-3 left-1/2 z-[60] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg px-3.5 py-2 text-sm shadow-float animate-settle', toast.tone === 'error' ? 'bg-oxide text-on-accent' : 'bg-ink text-paper')}>
+    <div role="status" className={cx('fixed top-3 left-1/2 z-[60] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg px-3.5 py-2 text-sm shadow-float animate-settle', toast.tone === 'error' ? 'bg-alert text-on-alert' : 'bg-raised text-ink border border-line-strong')}>
       {toast.text}
     </div>
   );

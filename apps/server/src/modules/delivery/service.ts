@@ -5,6 +5,7 @@ import {
   payloadExcerpt,
   type AckStatusDTO,
   type DeliveryStatusDTO,
+  type NeedsYouDTO,
   type NotificationDTO,
   type NotificationPreferences,
 } from '@strata/shared';
@@ -434,6 +435,32 @@ export async function deliveryStatus(messageId: string, userId: string): Promise
     }),
     ack: contract ? await toAckStatus(contract) : null,
   };
+}
+
+export async function needsYou(userId: string): Promise<NeedsYouDTO[]> {
+  const uid = new Types.ObjectId(userId);
+  const contracts = await AckContract.find({ state: 'open', required: uid, 'acks.userId': { $ne: uid } }).sort({ deadline: 1 }).limit(20).lean();
+  const [messages, rooms] = await Promise.all([
+    Message.find({ _id: { $in: contracts.map((c) => c.messageId) }, deletedAt: null }).lean(),
+    Room.find({ _id: { $in: contracts.map((c) => c.roomId) } }).select('name').lean(),
+  ]);
+  const byMessage = new Map(messages.map((m) => [String(m._id), m]));
+  const names = new Map(rooms.map((r) => [String(r._id), r.name]));
+  return contracts.flatMap((c) => {
+    const message = byMessage.get(String(c.messageId));
+    if (!message) return [];
+    return [
+      {
+        messageId: String(c.messageId),
+        roomId: String(c.roomId),
+        seq: message.seq,
+        roomName: names.get(String(c.roomId)) || message.sender.name,
+        senderName: message.sender.name,
+        excerpt: payloadExcerpt(message.payload),
+        deadline: c.deadline.toISOString(),
+      },
+    ];
+  });
 }
 
 export async function listNotifications(userId: string) {

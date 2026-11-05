@@ -77,7 +77,7 @@ function ChecklistBody({ session, summary, actor }: { session: BlockSession; sum
               onClick={() => checklistOps.toggle(doc, item.id, actor.name)}
               className={cx(
                 'flex size-5 shrink-0 items-center justify-center rounded-md border transition',
-                item.done ? 'border-vein bg-vein text-on-accent' : 'border-line-strong hover:border-vein',
+                item.done ? 'border-violet-fill bg-violet-fill text-on-violet' : 'border-line-strong hover:border-branch',
               )}
             >
               {item.done && <Check size={14} strokeWidth={3} />}
@@ -94,7 +94,7 @@ function ChecklistBody({ session, summary, actor }: { session: BlockSession; sum
             />
             {item.done && item.doneBy && <span className="hidden shrink-0 text-xs text-ink-3 sm:inline">{item.doneBy}</span>}
             {canEdit && (
-              <button type="button" aria-label={`Remove "${item.text}"`} onClick={() => checklistOps.remove(doc, item.id)} className="text-ink-3 opacity-0 transition group-hover:opacity-100 focus:opacity-100 hover:text-oxide max-sm:opacity-100">
+              <button type="button" aria-label={`Remove "${item.text}"`} onClick={() => checklistOps.remove(doc, item.id)} className="text-ink-3 opacity-0 transition group-hover:opacity-100 focus:opacity-100 hover:text-alert max-sm:opacity-100">
                 <X size={15} />
               </button>
             )}
@@ -134,7 +134,7 @@ function RosterBody({ session, summary, actor }: { session: BlockSession; summar
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               {slot.confirmed.map((c) => (
-                <Pill key={c.key} tone="vein">
+                <Pill key={c.key} tone="branch">
                   {c.name}
                 </Pill>
               ))}
@@ -149,7 +149,7 @@ function RosterBody({ session, summary, actor }: { session: BlockSession; summar
                   onClick={() => (mine ? rosterOps.release(doc, slot.id, actor.id) : rosterOps.claim(doc, slot.id, actor))}
                   className={cx(
                     'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition',
-                    mine ? 'border-line text-ink-2 hover:border-oxide hover:text-oxide' : 'border-vein text-vein hover:bg-vein-soft',
+                    mine ? 'border-line text-ink-2 hover:border-alert hover:text-alert' : 'border-branch text-branch hover:bg-tint-branch',
                   )}
                 >
                   {mine ? <X size={12} /> : <UserPlus size={12} />}
@@ -175,7 +175,7 @@ function InfoBody({ session, summary }: { session: BlockSession; summary: InfoCa
             <dt className="flex items-center justify-between text-xs font-medium text-ink-3">
               <span>{field.label}</span>
               {canEdit && (
-                <button type="button" aria-label={`Remove ${field.label}`} onClick={() => infoCardOps.remove(doc, field.id)} className="opacity-0 transition group-hover:opacity-100 focus:opacity-100 hover:text-oxide max-sm:opacity-100">
+                <button type="button" aria-label={`Remove ${field.label}`} onClick={() => infoCardOps.remove(doc, field.id)} className="opacity-0 transition group-hover:opacity-100 focus:opacity-100 hover:text-alert max-sm:opacity-100">
                   <Trash2 size={13} />
                 </button>
               )}
@@ -274,9 +274,9 @@ export function BlockCard({
   const status = session?.status ?? 'joining';
 
   return (
-    <section aria-label={`${def.label}: ${summary?.title ?? fallbackTitle}`} className="mt-1 max-w-md rounded-xl border border-line bg-surface p-3 shadow-card">
+    <section aria-label={`${def.label}: ${summary?.title ?? fallbackTitle}`} className="mt-1 max-w-md rounded-2xl border border-line-strong bg-raised p-3">
       <header className="mb-2 flex items-center gap-2">
-        <span className="flex size-6 items-center justify-center rounded-md bg-vein-soft text-vein">{ICONS[type] ?? <Lock size={14} />}</span>
+        <span className="flex size-6 items-center justify-center rounded-md bg-tint-branch text-branch">{ICONS[type] ?? <Lock size={14} />}</span>
         <h4 className="min-w-0 flex-1 truncate text-sm font-semibold">{summary?.title || fallbackTitle}</h4>
         {type === 'checklist' && summary && (
           <span className="font-mono text-xs text-ink-3">
@@ -297,7 +297,7 @@ export function BlockCard({
           {type === 'checklist' && <ChecklistBody session={session} summary={summary as ChecklistSummary} actor={actor} />}
           {type === 'roster' && <RosterBody session={session} summary={summary as RosterSummary} actor={actor} />}
           {type === 'info' && <InfoBody session={session} summary={summary as InfoCardSummary} />}
-          {session.error && <p className="mt-1.5 text-xs text-oxide">{session.error}</p>}
+          {session.error && <p className="mt-1.5 text-xs text-alert">{session.error}</p>}
           {!session.canEdit && status === 'live' && <p className="mt-1.5 text-xs text-ink-3">View only</p>}
         </>
       )}

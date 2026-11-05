@@ -44,9 +44,9 @@ async function upload(roomId: string, file: File) {
 
 const TINT: Record<Posture, string> = {
   standard: 'border-line focus-within:border-line-strong',
-  whisper: 'border-lilac/50 focus-within:border-lilac',
-  digest: 'border-copper/50 focus-within:border-copper',
-  blocking_ack: 'border-oxide/60 focus-within:border-oxide',
+  whisper: 'border-whisper/50 focus-within:border-whisper',
+  digest: 'border-crystal/50 focus-within:border-crystal',
+  blocking_ack: 'border-alert/60 focus-within:border-alert',
 };
 
 export function Composer({ roomId, replyTo, onClearReply, closedReason }: { roomId: string; replyTo: MessageDTO | null; onClearReply: () => void; closedReason: string | null }) {
@@ -78,7 +78,11 @@ export function Composer({ roomId, replyTo, onClearReply, closedReason }: { room
   }, [text]);
 
   if (closedReason) {
-    return <div className="border-t border-line px-4 py-3 text-center text-sm text-ink-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{closedReason}</div>;
+    return (
+      <div className="px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
+        <p className="st-glass rounded-[20px] px-4 py-3 text-center text-sm text-ink-2">{closedReason}</p>
+      </div>
+    );
   }
 
   const announceTyping = (active: boolean) => {
@@ -147,7 +151,7 @@ export function Composer({ roomId, replyTo, onClearReply, closedReason }: { room
   return (
     <div className="px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
       {replyTo && (
-        <div className="mb-1 flex items-center gap-2 rounded-t-lg border-l-2 border-vein bg-sunken px-3 py-1.5 text-sm animate-settle">
+        <div className="mb-1 flex items-center gap-2 st-glass rounded-xl px-3 py-1.5 text-sm animate-settle">
           <span className="min-w-0 flex-1 truncate text-ink-2">
             Replying to <span className="font-medium text-ink">{replyTo.sender.name}</span>: {payloadExcerpt(replyTo.payload, 80)}
           </span>
@@ -157,19 +161,19 @@ export function Composer({ roomId, replyTo, onClearReply, closedReason }: { room
         </div>
       )}
       {posture === 'blocking_ack' && deadline && (
-        <p className="mb-1 flex items-center gap-1 px-1 text-xs text-oxide">
+        <p className="mb-1 flex items-center gap-1 px-1 text-xs text-alert">
           <Check size={12} /> Everyone must acknowledge by {deadline.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
         </p>
       )}
-      <div className={cx('flex items-end gap-1 rounded-xl border bg-surface p-1 transition', TINT[posture])}>
+      <div className={cx('st-glass flex items-end gap-1 rounded-[20px] p-1 shadow-float transition-colors duration-200', TINT[posture])}>
         <div className="relative">
           <IconButton label="Add" aria-expanded={menu} disabled={uploading} onClick={() => setMenu((v) => !v)}>
             <Plus size={18} className={cx('transition', menu && 'rotate-45')} />
           </IconButton>
           {menu && (
-            <div role="menu" className="absolute bottom-full left-0 z-30 mb-2 w-48 rounded-xl border border-line bg-surface p-1.5 shadow-float animate-rise">
+            <div role="menu" className="st-glass absolute bottom-full left-0 z-30 mb-2 w-52 rounded-[20px] p-1.5 shadow-float animate-rise">
               {MENU.map((item) => (
-                <button key={item.label} type="button" role="menuitem" onClick={item.run} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition hover:bg-sunken">
+                <button key={item.label} type="button" role="menuitem" onClick={item.run} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm st-press hover:bg-tint-plain">
                   <span className="text-ink-2">{item.icon}</span>
                   {item.label}
                 </button>
@@ -198,8 +202,8 @@ export function Composer({ roomId, replyTo, onClearReply, closedReason }: { room
           onKeyDown={onKeyDown}
           className="min-h-9 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-1.5 text-[15px] outline-none placeholder:text-ink-3"
         />
-        <IconButton label="Send" disabled={!text.trim()} onClick={submit} className={cx(text.trim() && 'bg-ink text-paper hover:bg-ink hover:text-paper')}>
-          <SendHorizontal size={17} />
+        <IconButton label="Send" disabled={!text.trim()} onClick={submit} className={cx(text.trim() && 'st-primary st-pop hover:text-on-violet')}>
+          <SendHorizontal size={17} className="i-nudge" />
         </IconButton>
       </div>
       <input ref={file} type="file" hidden accept={Object.keys(ALLOWED_MIME).join(',')} onChange={onFile} />

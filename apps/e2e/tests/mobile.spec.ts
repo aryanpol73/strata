@@ -109,3 +109,23 @@ test('sending from the phone works', async ({ page, request }) => {
   await expect(row(page, 'sent from a phone')).toBeVisible();
 });
 
+
+test('the tab bar moves between screens and gets out of the way in a conversation', async ({ page, request }) => {
+  const [ada, bo] = [await person(request, 'Ada'), await person(request, 'Bo')];
+  const room = await group(request, ada, [bo], 'Tab Room');
+  await say(request, bo, room.id, 'hello tabs');
+  await signInOnPhone(page, ada);
+
+  const tabs = page.getByRole('navigation', { name: 'Main' });
+  await tabs.getByRole('link', { name: 'Branches' }).tap();
+  await expect(page.getByRole('heading', { name: 'Branches', exact: true })).toBeVisible();
+  await noSideScroll(page);
+  await tabs.getByRole('link', { name: /Attention/ }).tap();
+  await expect(page.getByRole('heading', { name: 'Attention', exact: true })).toBeVisible();
+  await noSideScroll(page);
+  await tabs.getByRole('link', { name: 'Inbox' }).tap();
+
+  await page.getByRole('link', { name: /Tab Room/ }).tap();
+  await expect(row(page, 'hello tabs')).toBeVisible();
+  await expect(tabs).toBeHidden();
+});

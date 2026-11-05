@@ -1,7 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@strata/shared';
 import { client } from '../api/client';
-import { handleRevoked, loadNotifications, loadRoom, resync } from '../state/actions';
+import { handleRevoked, loadNeedsYou, loadNotifications, loadRoom, resync } from '../state/actions';
 import { cacheMessages } from '../state/db';
 import { useStore } from '../state/store';
 
@@ -73,6 +73,7 @@ export function connectSocket() {
       me: mine ? room.me : { ...room.me, unread: room.me.unread + (quiet ? 0 : 1), quietUnread: room.me.quietUnread + (quiet ? 1 : 0) },
     });
     if (!mine) s.emit('receipt:delivered', { roomId: message.roomId, seq: message.seq });
+    if (!mine && message.posture === 'blocking_ack') void loadNeedsYou().catch(() => {});
   });
 
   s.on('message:updated', ({ message }) => {
@@ -100,7 +101,10 @@ export function connectSocket() {
     window.dispatchEvent(new CustomEvent('strata:branches'));
   });
   s.on('canvas:changed', (e) => window.dispatchEvent(new CustomEvent('strata:canvas', { detail: e })));
-  s.on('ack:updated', () => void loadNotifications().catch(() => {}));
+  s.on('ack:updated', () => {
+    void loadNotifications().catch(() => {});
+    void loadNeedsYou().catch(() => {});
+  });
   s.on('session:revoked', () => void handleRevoked());
 
   return s;

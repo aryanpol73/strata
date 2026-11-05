@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { MessageDTO, NotificationDTO, Posture, ReceiptEvent, RoomDTO, SelfDTO, TypingEvent } from '@strata/shared';
+import type { MessageDTO, NeedsYouDTO, NotificationDTO, Posture, ReceiptEvent, RoomDTO, SelfDTO, TypingEvent } from '@strata/shared';
 
 /** A message written here that the server hasn't confirmed yet. */
 export interface PendingMessage {
@@ -35,6 +35,7 @@ interface State {
   online: Record<string, true>;
   typing: Record<string, Record<string, { name: string; until: number }>>;
   notifications: NotificationDTO[];
+  needsYou: NeedsYouDTO[];
   canvasOpen: boolean;
   toast: { id: number; text: string; tone: 'info' | 'error' } | null;
 
@@ -87,6 +88,7 @@ const initial = {
   online: {},
   typing: {},
   notifications: [],
+  needsYou: [],
   toast: null,
 };
 
