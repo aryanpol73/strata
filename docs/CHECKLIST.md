@@ -12,11 +12,11 @@ Last updated 2026-11-05. The rule here is that nothing is marked complete withou
 | `packages/shared` | 9 of 9 | Yjs documents |
 | `apps/server` | 228 of 228 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients, and a second real server process |
 | `apps/web` | 20 of 20 | Store and block session logic |
-| `apps/e2e` | 59 of 59 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
-| **Total** | **316 of 316** | |
+| `apps/e2e` | 72 of 72 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
+| **Total** | **329 of 329** | |
 
 Type-checking passes in all packages, with `strict` and `noUncheckedIndexedAccess`. Production builds pass. The largest
-web chunk is 273 KB (88 KB gzipped). Accessibility audits (axe, WCAG 2.1 AA) pass on the main screens in both the Deep and Day themes.
+web chunk is 273 KB (88 KB gzipped). Accessibility audits (axe, WCAG 2.1 AA) pass on the main screens in all four looks: Violet and Emerald, each dark and light, including every Settings section.
 
 The browser suite also passed twice over in one run, and the offline tests six times over, because some of the bugs
 below only appeared intermittently.
@@ -71,6 +71,17 @@ between Canvas and source, and selecting a posture.
 - [x] Message bubbles, floating glass composer, sliding Stream/Canvas switch (Browser)
 - [x] Branches and Attention screens, with Needs You and acknowledgement from the list (Automated, Browser)
 - [x] Buttons respond to the pointer, show progress while busy, and stay still under reduced motion (Browser)
+
+### Themes, logo, photos and Settings
+
+- [x] Violet and Emerald colour themes, each dark, light or matching the device (Browser, audited)
+- [x] App icon choice per person, covering the tab, in-app logo and install manifest (Browser)
+- [x] Appearance choices follow a person to new devices (Browser)
+- [x] Profile photos with crop, public or private, and the old address retired on going private (Browser)
+- [x] Settings in seven sections, including password change, appearing offline, storage and install (Browser for password and appearing offline)
+
+An installed app keeps the icon it was installed with until it's reinstalled, and push notifications always use the
+violet icon. Photos change for other people the next time they load the conversation, not live. Guests never see photos.
 
 ### Failure recovery
 

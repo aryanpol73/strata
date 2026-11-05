@@ -1,3 +1,4 @@
+import type { Appearance } from '@strata/shared';
 import { Schema, model, type Types } from 'mongoose';
 
 export interface IUser {
@@ -7,6 +8,9 @@ export interface IUser {
   displayName: string;
   handle: string;
   avatarUrl: string | null;
+  avatarPrivate: boolean;
+  showOnline: boolean;
+  appearance: Appearance | null;
   bio: string;
   createdAt: Date;
 }
@@ -18,12 +22,31 @@ const userSchema = new Schema<IUser>(
     displayName: { type: String, required: true, trim: true, maxlength: 60 },
     handle: { type: String, required: true, unique: true, lowercase: true, trim: true },
     avatarUrl: { type: String, default: null },
+    avatarPrivate: { type: Boolean, default: false },
+    showOnline: { type: Boolean, default: true },
+    appearance: { type: Schema.Types.Mixed, default: null },
     bio: { type: String, default: '', maxlength: 280 },
   },
   { timestamps: true },
 );
 
 export const User = model<IUser>('User', userSchema);
+
+export interface IAvatarImage {
+  _id: Types.ObjectId;
+  key: string;
+  mime: string;
+  bytes: Buffer;
+}
+
+/** One small image per person, keyed by user id. `key` is what makes the URL unguessable, and replacing it revokes the URL. */
+const avatarImageSchema = new Schema<IAvatarImage>({
+  key: { type: String, required: true },
+  mime: { type: String, required: true },
+  bytes: { type: Buffer, required: true },
+});
+
+export const AvatarImage = model<IAvatarImage>('AvatarImage', avatarImageSchema);
 
 export interface IDeviceSession {
   _id: Types.ObjectId;

@@ -102,6 +102,10 @@ Room id never appears in guest paths, because it comes from the capability.
 | DELETE | `/canvas/blocks/:id` | Remove |
 
 ### Attention and media
+`POST /auth/password` changes the password and signs out other devices. `POST` and `DELETE /users/me/avatar` set and
+remove the profile photo. `GET /avatars/:userId/:key` serves it with no sign-in, because the random key is the permission,
+and that key changes when a photo goes private. `PATCH /users/me` also takes `avatarPrivate`, `showOnline` and `appearance`.
+
 `GET/PUT /notifications/preferences`, `GET /notifications`, `GET /notifications/needs-you` (acknowledgements still
 waiting on me), `POST /notifications/read`,
 `GET /notifications/push-key`, `POST /notifications/push-subscriptions`, `DELETE /notifications/push-subscriptions`,

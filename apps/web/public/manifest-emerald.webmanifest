@@ -1,0 +1,36 @@
+{
+  "id": "/",
+  "name": "Strata",
+  "short_name": "Strata",
+  "description": "Conversations that crystallize instead of evaporating.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07100d",
+  "theme_color": "#07100d",
+  "icons": [
+    {
+      "src": "/icons/emerald-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/emerald-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/emerald-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/emerald-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import type { AuthResponse, MessageDTO, MessagePage, NeedsYouDTO, NotificationDTO, Posture, RoomDTO, SyncResponse } from '@strata/shared';
 import { ApiError, CLIENT_HEADER, api, client, setSignedOutHandler } from '../api/client';
+import { adoptAppearance } from '../features/settings/appearance';
 import { connectSocket, disconnectSocket } from '../realtime/socket';
 import { cacheMessages, cachedMessages, clearLocalData, db } from './db';
 import { useStore, type PendingMessage } from './store';
@@ -13,6 +14,7 @@ const START_RETRY_MS = 4000;
 async function enter(res: AuthResponse) {
   client.setToken(res.accessToken);
   get().setAuth(res.user, res.sessionId);
+  adoptAppearance(res.user.appearance);
   connectSocket();
   // HTTP can fail while the socket stays up, so waiting for a reconnect alone could strand the outbox.
   window.removeEventListener('online', flushOnline);

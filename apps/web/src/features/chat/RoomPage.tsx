@@ -250,6 +250,7 @@ function Stream({
               canOpenResolution={m.payload.type === 'resolution' && branches.some((b) => b.roomId === (m.payload as { branchRoomId: string }).branchRoomId && b.canReadTranscript)}
               receipt={myLast?.id === m.id ? receiptFor(m, room, me.id) : null}
               showName={room.kind !== 'direct'}
+              avatarUrl={room.members.find((x) => x.userId === m.sender.id)?.avatarUrl}
               body={
                 <MessageBody
                   m={m}

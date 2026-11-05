@@ -95,6 +95,69 @@
   color-scheme: light;
 }
 
+/* Emerald swaps the action colour and the ground. Branches go blue, so action and branch never read as the same thing. */
+:root[data-accent='emerald'] {
+  --void: #07100d;
+  --basin: #0b1713;
+  --surface: #11211b;
+  --raised: #182d25;
+  --sheet: #0e1c17;
+  --ink: #ecf8f3;
+  --ink-2: #b3cbc1;
+  --ink-3: #93ada2;
+  --violet: #6ff0bd;
+  --violet-fill: #0c7f5b;
+  --violet-deep: #0a6a4c;
+  --bubble-mine: #0e6a50;
+  --branch: #7cc4ff;
+  --on-branch: #06202f;
+  --whisper: #a9dcc8;
+  --tint-violet: rgba(60, 220, 160, 0.16);
+  --tint-branch: rgba(124, 196, 255, 0.14);
+  --glass: rgba(17, 33, 27, 0.84);
+  --scrim: rgba(3, 9, 7, 0.62);
+  --aurora: rgba(20, 180, 120, 0.24);
+  --glow: 0 8px 24px -8px rgba(16, 160, 110, 0.75);
+  --glow-strong: 0 12px 32px -8px rgba(16, 160, 110, 0.95), 0 0 0 1px rgba(111, 240, 189, 0.3);
+}
+
+:root[data-theme='day'][data-accent='emerald'] {
+  --void: #eff8f4;
+  --basin: #f8fcfa;
+  --surface: #ffffff;
+  --raised: #ffffff;
+  --sheet: #e6f3ed;
+  --line: rgba(15, 42, 32, 0.1);
+  --line-strong: rgba(15, 42, 32, 0.26);
+  --ink: #0f2a20;
+  --ink-2: #3d5a4e;
+  --ink-3: #4f6c60;
+  --violet: #0a7554;
+  --violet-fill: #0a7554;
+  --violet-deep: #085e44;
+  --bubble-mine: #0a7554;
+  --branch: #0b5f8a;
+  --on-branch: #ffffff;
+  --whisper: #2f6b55;
+  --tint-plain: rgba(15, 42, 32, 0.06);
+  --tint-violet: rgba(10, 117, 84, 0.1);
+  --tint-branch: rgba(11, 95, 138, 0.1);
+  --glass: rgba(255, 255, 255, 0.9);
+  --scrim: rgba(15, 42, 32, 0.36);
+  --aurora: rgba(16, 160, 110, 0.12);
+  --sheen: rgba(10, 117, 84, 0.1);
+  --ripple: rgba(10, 117, 84, 0.16);
+  --glow: 0 8px 20px -10px rgba(10, 117, 84, 0.55);
+  --glow-strong: 0 12px 26px -10px rgba(10, 117, 84, 0.7), 0 0 0 1px rgba(10, 117, 84, 0.2);
+}
+
+:root[data-text='small'] {
+  font-size: 93.75%;
+}
+:root[data-text='large'] {
+  font-size: 112.5%;
+}
+
 @theme inline {
   --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Newsreader Variable', Georgia, serif;
@@ -382,6 +445,18 @@ body {
 /* The send button arrives as soon as there's something to send. */
 .st-pop {
   animation: pop 260ms var(--ease-out);
+}
+
+:root[data-motion='reduced'] *,
+:root[data-motion='reduced'] *::before,
+:root[data-motion='reduced'] *::after {
+  animation-duration: 1ms !important;
+  transition-duration: 1ms !important;
+}
+:root[data-motion='reduced'] .st-press,
+:root[data-motion='reduced'] .st-press:hover:not(:disabled),
+:root[data-motion='reduced'] .st-press:active:not(:disabled) {
+  transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

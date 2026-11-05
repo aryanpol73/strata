@@ -14,12 +14,19 @@ async function audit(page: Page, where: string) {
 }
 
 /** The theme is the person's choice in Settings, kept in localStorage, not the system's colour scheme. */
-const withTheme = (baseURL: string | undefined, theme: 'deep' | 'day') => ({
-  storageState: { cookies: [], origins: [{ origin: baseURL!, localStorage: [{ name: 'strata:theme', value: theme }] }] },
+const withTheme = (baseURL: string | undefined, theme: { accent: string; mode: string }) => ({
+  storageState: { cookies: [], origins: [{ origin: baseURL!, localStorage: [{ name: 'strata:appearance', value: JSON.stringify(theme) }] }] },
 });
 
-for (const theme of ['deep', 'day'] as const) {
-  test.describe(`${theme} theme`, () => {
+const THEMES = [
+  { accent: 'violet', mode: 'dark' },
+  { accent: 'violet', mode: 'light' },
+  { accent: 'emerald', mode: 'dark' },
+  { accent: 'emerald', mode: 'light' },
+];
+
+for (const theme of THEMES) {
+  test.describe(`${theme.accent} ${theme.mode}`, () => {
     test('sign-in page', async ({ browser, baseURL }) => {
       const page = watch(await (await browser.newContext({ baseURL, ...withTheme(baseURL, theme) })).newPage());
       await page.goto('/');
@@ -63,9 +70,14 @@ for (const theme of ['deep', 'day'] as const) {
     test('settings', async ({ browser, baseURL, request }) => {
       const ada = await person(request, 'Ada');
       const a = await signIn(browser, baseURL!, ada, withTheme(baseURL, theme));
-      await a.goto('/settings');
+      await a.goto('/settings/security');
       await expect(a.getByText('This device', { exact: true })).toBeVisible();
-      await audit(a, 'settings');
+      await audit(a, 'settings security');
+      for (const section of ['profile', 'appearance', 'notifications', 'privacy', 'data', 'about']) {
+        await a.goto(`/settings/${section}`);
+        await expect(a.getByRole('heading', { level: 2 }).filter({ hasNotText: /^(Account|Preferences|App)$/ }).first()).toBeVisible();
+        await audit(a, `settings ${section}`);
+      }
     });
   });
 }

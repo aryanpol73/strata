@@ -99,8 +99,8 @@ test('signing out a device from Settings ends it on the spot', async ({ browser,
   const ada = await person(request, 'Ada');
   const [laptop, phone] = [await signIn(browser, baseURL!, ada), await signIn(browser, baseURL!, ada)];
 
-  await laptop.goto('/settings');
-  await laptop.getByRole('button', { name: 'Sign out', exact: true }).first().click();
+  await laptop.goto('/settings/security');
+  await laptop.getByRole('listitem').getByRole('button', { name: 'Sign out', exact: true }).first().click();
   await expect(phone.getByRole('button', { name: 'Sign in' })).toBeVisible();
   await expect(laptop.getByText('This device', { exact: true })).toBeVisible();
 });

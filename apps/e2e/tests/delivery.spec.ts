@@ -82,7 +82,7 @@ test('quiet hours and rules saved in Settings change what happens next', async (
   const room = await group(request, ada, [bo], 'Rules Room');
   const b = await signIn(browser, baseURL!, bo);
 
-  await b.goto('/settings');
+  await b.goto('/settings/notifications');
   await b.getByLabel('Rule conversation').selectOption({ label: 'Rules Room' });
   await b.getByLabel('Rule action').selectOption({ label: 'Never notify me' });
   await b.getByRole('button', { name: 'Add rule' }).click();

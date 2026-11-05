@@ -1,5 +1,5 @@
 import { Router, type CookieOptions, type Request, type Response } from 'express';
-import { loginInput, objectId, registerInput } from '@strata/shared';
+import { changePasswordInput, loginInput, objectId, registerInput } from '@strata/shared';
 import { getEnv } from '../../config/env.js';
 import { unauthenticated } from '../../lib/errors.js';
 import { param, parse, requireClientHeader } from '../../lib/http.js';
@@ -51,6 +51,12 @@ authRoutes.post('/refresh', limits.refresh, requireClientHeader, async (req, res
 authRoutes.post('/logout', requireClientHeader, async (req, res) => {
   await auth.logoutByToken(req.cookies?.[COOKIE] as string | undefined);
   res.clearCookie(COOKIE, { ...cookieOptions(), maxAge: undefined });
+  res.status(204).end();
+});
+
+authRoutes.post('/password', requireUser, limits.login, async (req, res) => {
+  const user = currentUser(req);
+  await auth.changePassword(user.id, user.sessionId, parse(changePasswordInput, req.body));
   res.status(204).end();
 });
 
