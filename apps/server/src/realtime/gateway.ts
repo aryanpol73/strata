@@ -21,6 +21,7 @@ interface SocketData {
   user?: AuthedUser;
   guest?: GuestContext;
   lastTypingAt?: number;
+  visible?: boolean;
   budget?: TokenBucket;
 }
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -75,6 +76,10 @@ async function announcePresence(io: Server, socket: AppSocket, user: AuthedUser,
 }
 
 function attachMemberEvents(io: Server, socket: AppSocket, user: AuthedUser, roomIds: string[]) {
+  socket.on('client:visibility', ({ visible }) => {
+    socket.data.visible = visible === true;
+  });
+
   socket.on('receipt:delivered', ({ roomId, seq }) => {
     // Channel membership is maintained by the hub as people join and leave, so it reflects current access.
     if (!socket.rooms.has(channels.room(String(roomId))) || !Number.isInteger(seq)) return;

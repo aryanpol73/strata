@@ -1,6 +1,8 @@
 import type { AuthResponse, MessageDTO, MessagePage, NeedsYouDTO, NotificationDTO, Posture, RoomDTO, SyncResponse } from '@strata/shared';
 import { ApiError, CLIENT_HEADER, api, client, setSignedOutHandler } from '../api/client';
+import { ensureRoomKeys, forgetE2ee, initE2ee, rememberClear, sealMessage, syncEncryptedRooms } from '../features/e2ee/service';
 import { adoptAppearance } from '../features/settings/appearance';
+import { syncPush } from '../features/settings/push';
 import { connectSocket, disconnectSocket } from '../realtime/socket';
 import { cacheMessages, cachedMessages, clearLocalData, db } from './db';
 import { useStore, type PendingMessage } from './store';
@@ -15,11 +17,16 @@ async function enter(res: AuthResponse) {
   client.setToken(res.accessToken);
   get().setAuth(res.user, res.sessionId);
   adoptAppearance(res.user.appearance);
+  // Settled before anything is shown, so the app never appears for a moment and then gets covered by the unlock screen.
+  await initE2ee();
   connectSocket();
   // HTTP can fail while the socket stays up, so waiting for a reconnect alone could strand the outbox.
   window.removeEventListener('online', flushOnline);
   window.addEventListener('online', flushOnline);
   await Promise.all([loadRooms(), loadNotifications(), loadNeedsYou()]);
+  // Having said yes once, this device keeps receiving pushes after sign-ins, new accounts and cleared subscriptions.
+  void syncPush().catch(() => {});
+  void syncEncryptedRooms().catch(() => {});
   await syncTimezone();
   await restoreOutbox();
 }
@@ -42,6 +49,7 @@ async function start() {
     if (cached.length) {
       get().setRooms(cached);
       useStore.setState({ authStatus: 'ready', connection: 'offline', me: JSON.parse(localStorage.getItem('strata:me') ?? 'null') });
+      void initE2ee();
       retryStartWhenOnline();
     } else {
       get().setAuth(null);
@@ -92,6 +100,7 @@ async function endSession() {
   client.setToken(null);
   localStorage.removeItem('strata:me');
   await clearLocalData().catch(() => {});
+  await forgetE2ee();
   get().reset();
 }
 
@@ -195,19 +204,35 @@ const isRetryable = (err: unknown) => err instanceof ApiError && (err.code === '
 async function deliver(p: PendingMessage) {
   // Between the network returning and sign-in finishing there's no token yet, which isn't the message's fault.
   if (!client.getToken()) throw new ApiError(0, 'NETWORK', 'Not connected yet');
+  // Encrypted here, at the last moment, so what's kept in the outbox while offline is the only plaintext left on the device.
+  const encrypted = get().rooms[p.roomId]?.encryption?.enabled;
+  const content = encrypted ? await sealMessage(p.roomId, p.text) : { type: 'text' as const, text: p.text };
   const { message } = await api<{ message: MessageDTO }>(`/rooms/${p.roomId}/messages`, {
     method: 'POST',
     body: {
       clientMessageId: p.clientMessageId,
-      content: { type: 'text', text: p.text },
+      content,
       replyToId: p.replyToId,
       posture: p.posture,
       ackDeadline: p.ackDeadline,
     },
   });
   await db.outbox.delete(p.clientMessageId);
+  // A retry can be stored from an earlier attempt's ciphertext, so remember the one the server actually kept.
+  if (message.payload.type === 'encrypted') rememberClear(message.id, message.payload.ct, p.text);
   get().upsertMessages(p.roomId, [message]);
 }
+
+export async function editMessageText(m: MessageDTO, text: string) {
+  if (m.payload.type !== 'encrypted') return void (await api(`/messages/${m.id}`, { method: 'PATCH', body: { text } }));
+  const sealed = await sealMessage(m.roomId, text);
+  const { type: _type, ...encrypted } = sealed;
+  const { message } = await api<{ message: MessageDTO }>(`/messages/${m.id}`, { method: 'PATCH', body: { encrypted } });
+  if (message.payload.type === 'encrypted') rememberClear(message.id, message.payload.ct, text);
+  get().upsertMessages(m.roomId, [message]);
+}
+
+export { ensureRoomKeys };
 
 /** Shown straight away, kept in the outbox until confirmed, and safe to retry because the id never changes. */
 export async function sendText(roomId: string, text: string, options: SendOptions) {

@@ -12,6 +12,7 @@ import {
 import { getEnv } from '../../config/env.js';
 import { AppError, forbidden, notFound } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
+import { getVapid } from '../../lib/vapid.js';
 import {
   AckContract,
   Notification,
@@ -26,13 +27,20 @@ import { Room, RoomMember, type IRoom } from '../../models/rooms.js';
 import { hub } from '../../realtime/hub.js';
 import { requireRead } from '../access.js';
 import { reviseMessage } from '../messages/store.js';
-import { MAX_ATTEMPTS, decide, isQuiet, quietEnd, retryDelayMs } from './policy.js';
+import { MAX_ATTEMPTS, decide, isQuiet, nextDigestAt, quietEnd, retryDelayMs } from './policy.js';
 
 const LEASE_MS = 60_000;
 const SWEEP_BATCH = 500;
 
 /** Push payloads pass through browser vendors' servers, so they never carry message content. */
-export type PushSender = (userId: string, payload: { title: string; url: string }) => Promise<void>;
+export interface PushPayload {
+  title: string;
+  body: string;
+  url: string;
+  /** Notifications with the same tag replace each other, so a busy room makes one entry and not twenty. */
+  tag: string;
+}
+export type PushSender = (userId: string, payload: PushPayload) => Promise<void>;
 
 let pushSender: PushSender = sendWebPush;
 export const setPushSender = (sender: PushSender) => {
@@ -42,15 +50,15 @@ export const resetPushSender = () => {
   pushSender = sendWebPush;
 };
 
-async function sendWebPush(userId: string, payload: { title: string; url: string }): Promise<void> {
+async function sendWebPush(userId: string, payload: PushPayload): Promise<void> {
   const env = getEnv();
-  if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) return;
+  const vapid = await getVapid();
   const subject = env.VAPID_SUBJECT ?? env.APP_URL;
   const subscriptions = await PushSubscriptionModel.find({ userId }).lean();
   const results = await Promise.allSettled(
     subscriptions.map((sub) =>
       webpush.sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, JSON.stringify(payload), {
-        vapidDetails: { subject, publicKey: env.VAPID_PUBLIC_KEY!, privateKey: env.VAPID_PRIVATE_KEY! },
+        vapidDetails: { subject, publicKey: vapid.publicKey, privateKey: vapid.privateKey },
         TTL: 3600,
       }),
     ),
@@ -192,17 +200,32 @@ async function alreadySeen(n: INotification): Promise<boolean> {
   return member.lastReadSeq >= message.seq;
 }
 
+const PUSH_BODY: Record<string, string> = {
+  message: 'New message',
+  ack_reminder: 'Please acknowledge before the deadline',
+  ack_expired: 'An acknowledgement request has expired',
+};
+
+/**
+ * Push payloads are encrypted to the browser, but they still pass through its vendor, so they carry who and where and
+ * never what. That also means this works the same for end-to-end encrypted conversations.
+ */
+function pushFor(n: INotification): PushPayload {
+  if (n.kind === 'digest') {
+    return { title: 'Your Strata digest', body: n.body || `${n.digestCount} updates`, url: '/attention', tag: 'digest' };
+  }
+  const body = n.posture === 'blocking_ack' && n.kind === 'message' ? 'Needs your acknowledgement' : (PUSH_BODY[n.kind] ?? 'New activity');
+  return { title: n.title || 'Strata', body, url: n.roomId ? `/r/${String(n.roomId)}` : '/', tag: n.roomId ? `room:${String(n.roomId)}` : n.kind };
+}
+
 async function transmit(n: INotification) {
   const prefs = await getPreferences(n.userId);
   const userId = String(n.userId);
   const sentAt = new Date();
   if (prefs.channels.inApp) hub.toUser(userId, 'notification:new', { notification: toNotificationDTO({ ...n, state: 'sent', sentAt }) });
-  if (prefs.channels.push && !(await hub.onlineUsers([userId])).length) {
-    await pushSender(userId, {
-      title: n.kind === 'digest' ? 'Your Strata digest is ready' : 'New activity in Strata',
-      url: n.roomId ? `/r/${String(n.roomId)}` : '/',
-    });
-  }
+  // Online isn't the right test: a phone in a pocket keeps its socket for a while. What matters is whether a window of
+  // Strata is in front of the person, because that window shows its own alert and a second one would be noise.
+  if (prefs.channels.push && !(await hub.activeUsers([userId])).length) await pushSender(userId, pushFor(n));
   return sentAt;
 }
 
@@ -226,6 +249,40 @@ async function dispatchOne(n: INotification) {
   }
 }
 
+/** "Launch Crew (3), Design (1)": who to look at, without repeating what was said. */
+async function summariseByRoom(rows: INotification[]): Promise<string> {
+  const counts = new Map<string, number>();
+  for (const row of rows) counts.set(String(row.roomId), (counts.get(String(row.roomId)) ?? 0) + 1);
+  const rooms = await Room.find({ _id: { $in: [...counts.keys()] } }).select('name kind').lean();
+  const names = new Map(rooms.map((r) => [String(r._id), r.kind === 'direct' ? 'Direct messages' : r.name]));
+  const parts = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([id, n]) => `${names.get(id) ?? 'A conversation'} (${n})`);
+  return parts.length > 3 ? `${parts.slice(0, 3).join(', ')} and ${parts.length - 3} more` : parts.join(', ');
+}
+
+/** What's being held for the next digest, by conversation, so that waiting is never a mystery. */
+export async function digestQueue(userId: string) {
+  const rows = await Notification.aggregate<{ _id: Types.ObjectId; count: number; latestAt: Date }>([
+    { $match: { userId: new Types.ObjectId(userId), digest: true, state: 'pending' } },
+    { $group: { _id: '$roomId', count: { $sum: 1 }, latestAt: { $max: '$createdAt' } } },
+    { $sort: { latestAt: -1 } },
+  ]);
+  const rooms = await Room.find({ _id: { $in: rows.map((r) => r._id) } }).select('name kind').lean();
+  const names = new Map(rooms.map((r) => [String(r._id), r.name]));
+  const prefs = await getPreferences(userId);
+  return {
+    total: rows.reduce((sum, r) => sum + r.count, 0),
+    nextAt: rows.length ? nextDigestAt(prefs, new Date()).toISOString() : null,
+    items: rows.map((r) => ({ roomId: String(r._id), roomName: names.get(String(r._id)) ?? 'A conversation', count: r.count, latestAt: r.latestAt.toISOString() })),
+  };
+}
+
+/** Delivers everything held for the digest now, as one notification, instead of waiting for the next window. */
+export async function flushDigest(userId: string) {
+  const { modifiedCount } = await Notification.updateMany({ userId, digest: true, state: 'pending' }, { dueAt: new Date() });
+  if (modifiedCount) kick();
+  return modifiedCount;
+}
+
 /** Replaces a user's due digest rows with a single notification, so a batch interrupts once. */
 async function dispatchDigest(first: INotification, now: Date) {
   const lease = new Date(now.getTime() + LEASE_MS);
@@ -243,13 +300,12 @@ async function dispatchDigest(first: INotification, now: Date) {
   }
   if (!unseen.length) return;
 
-  const roomCount = new Set(unseen.map((r) => String(r.roomId))).size;
   const digest = await Notification.create({
     userId: first.userId,
     kind: 'digest',
     posture: 'digest',
     title: `${unseen.length} update${unseen.length === 1 ? '' : 's'} while you were away`,
-    body: `Across ${roomCount} conversation${roomCount === 1 ? '' : 's'}. ${unseen[0]!.title}: ${unseen[0]!.body}`,
+    body: await summariseByRoom(unseen),
     digestCount: unseen.length,
     dueAt: now,
     leaseUntil: lease,

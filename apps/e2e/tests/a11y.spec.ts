@@ -34,6 +34,17 @@ for (const theme of THEMES) {
       await audit(page, 'sign-in');
     });
 
+    test('encryption setup screen', async ({ browser, baseURL, request }) => {
+      const ada = await person(request, 'Ada');
+      const page = watch(await (await browser.newContext({ baseURL, ...withTheme(baseURL, theme) })).newPage());
+      await page.goto('/');
+      await page.getByLabel('Email').fill(ada.email);
+      await page.getByLabel('Password').fill(ada.password);
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect(page.getByRole('dialog', { name: 'Protect your conversations' })).toBeVisible();
+      await audit(page, 'encryption setup');
+    });
+
     test('conversation with a Canvas, a block and a resolution', async ({ browser, baseURL, request }) => {
       const [ada, bo] = [await person(request, 'Ada'), await person(request, 'Bo')];
       const room = await group(request, ada, [bo]);
@@ -73,7 +84,7 @@ for (const theme of THEMES) {
       await a.goto('/settings/security');
       await expect(a.getByText('This device', { exact: true })).toBeVisible();
       await audit(a, 'settings security');
-      for (const section of ['profile', 'appearance', 'notifications', 'privacy', 'data', 'about']) {
+      for (const section of ['profile', 'encryption', 'appearance', 'notifications', 'privacy', 'data', 'about']) {
         await a.goto(`/settings/${section}`);
         await expect(a.getByRole('heading', { level: 2 }).filter({ hasNotText: /^(Account|Preferences|App)$/ }).first()).toBeVisible();
         await audit(a, `settings ${section}`);

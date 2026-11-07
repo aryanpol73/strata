@@ -1,4 +1,4 @@
-import { composer, expect, group, person, row, say, test, watch, write, type Person } from './support';
+import { composer, expect, passEncryptionGate, group, person, row, say, test, watch, write, type Person } from './support';
 import type { Page } from '@playwright/test';
 
 async function signInOnPhone(page: Page, who: Person) {
@@ -7,6 +7,7 @@ async function signInOnPhone(page: Page, who: Person) {
   await page.getByLabel('Email').fill(who.email);
   await page.getByLabel('Password').fill(who.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
+  await passEncryptionGate(page, who);
   await expect(page.getByRole('navigation', { name: 'Conversations' })).toBeVisible();
 }
 

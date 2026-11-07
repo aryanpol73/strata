@@ -74,15 +74,55 @@ checked by the block type's validator before persistence. Malformed or forbidden
 
 ## Encryption
 
-**Strata is not end-to-end encrypted.** TLS protects transport. Encryption at rest depends on the MongoDB and Redis
-deployment. The server can read message content, and needs to for search, previews, and notifications. Strata will not
-claim otherwise unless an established protocol is implemented and independently reviewed.
+Text messages in direct conversations, groups and branches are **end-to-end encrypted**: they are encrypted in the browser
+before they are sent, and the server stores only ciphertext. The server cannot read them, search them or put them in a
+notification. This section says exactly what that does and doesn't cover.
+
+**Read this too:** the construction uses standard primitives from the browser's own WebCrypto, but it is Strata's own
+protocol. It is not Signal or MLS, and it **has not been independently reviewed**. It should be reviewed before anyone
+relies on it against a capable attacker.
+
+### How it works
+
+| Piece | Construction |
+| --- | --- |
+| Identity | An ECDH P-256 key pair per person, made in the browser. The server holds the public key |
+| Backup | The private key, encrypted with AES-256-GCM under a key derived from a passphrase with PBKDF2-SHA-256 (600,000 iterations). The server holds this blob and never the passphrase |
+| Room key | A random AES-256-GCM key per conversation and version |
+| Sharing a room key | For each member: ECDH with a throwaway key, HKDF-SHA-256, then AES-GCM. The room, person and version are bound in as authenticated data, so a copy can't be replayed elsewhere |
+| Messages | AES-256-GCM with a random 96-bit IV, bound to the room and key version. Edits are re-encrypted |
+| Rotation | When someone leaves, the room needs a new key version, which the remaining members' clients create. The person who left is never given it |
+| Security codes | The SHA-256 of a public key, shown as six groups of digits, to compare in person or on a call |
+| Key changes | Each device remembers the first key it saw for each person. If the server later presents a different one, nothing is shared with it until the person accepts it |
+
+The server enforces what it can without seeing content: an encrypted conversation refuses plaintext messages and edits,
+only members can add keys, only for current members, a key already shared is never overwritten, and a key version can
+only be created once.
+
+### What is not encrypted
+
+- **Metadata.** Who is in a conversation, who sent each message, when, and its posture. Room names and branch titles.
+- **Files and images.** Attachments are stored with the server's own protection, not end-to-end.
+- **The Canvas, live blocks and resolution summaries.** The server has to read them to validate, merge and display them. Adding an encrypted message to the Canvas asks first, because it shows the server the text.
+- **Guest branches.** A guest has no keys, so a branch that allows guests is created without encryption, and says so.
+- **Notifications.** A push says who and where, never what. Titles contain the sender and conversation name.
+- **Conversations from before encryption was set up.** They stay as they were, and say so in their header.
+
+### Limits worth knowing
+
+- **No forward secrecy per message.** Anyone who obtains a room key can read every message sealed with that version. Keys are replaced when someone leaves, not on a schedule.
+- **A lost passphrase is unrecoverable.** Strata can't reset it. Old messages can only come back if another member of a conversation shares its keys again, which happens by itself after a reset.
+- **First contact is trust on first use.** A malicious server could present a false key the first time two people meet. Comparing security codes defeats that, and Strata doesn't force anyone to.
+- **A member can withhold or spoil keys.** Someone in a conversation could pre-store a useless key copy for another member. The result is that person being unable to read until the keys are replaced, not a leak.
+- **Search is local.** Encrypted conversations are searched on the device, among messages already opened.
+- **Keys sit in the browser's storage** while signed in, and are removed on sign-out. Cross-site scripting would be able to use them, which is why the Content Security Policy is strict.
+- **TLS and database encryption still apply** to everything, and are what protect the items above that are not end-to-end.
 
 ## Privacy implications
 
 | Area | Implication |
 | --- | --- |
-| Server-side processing | Message text is stored in plaintext and indexed for search. Operators with database access can read it |
+| Server-side processing | Encrypted conversations are stored as ciphertext. Everything listed under "What is not encrypted" is stored readable and, where it's text, indexed for search |
 | Guests | A guest can read everything in the branch from before they joined, and can copy it. Inviters are told this in the UI |
 | Guest data | Display name, hashed session secret, and IP-derived rate-limit counters. Sessions expire automatically |
 | Shared blocks | Edits are attributed in history, and everyone with access can see who changed what |

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { encryptedBody } from './e2ee.js';
 import { LIMITS, clientId, objectId, postureSchema, type Posture, type PrincipalRef } from './common.js';
 
 /** Polymorphic payloads, as stored. Add a member here to introduce a new message type. */
@@ -28,6 +29,8 @@ export const resolutionPayload = z.object({
   participantCount: z.number().int().nonnegative(),
   transcriptOpen: z.boolean(),
 });
+/** A message body only the conversation's members can read. The server holds this and can't open it. */
+export const encryptedPayload = encryptedBody.extend({ type: z.literal('encrypted') });
 export const systemPayload = z.object({ type: z.literal('system'), text: z.string().max(500) });
 export const tombstonePayload = z.object({ type: z.literal('deleted') });
 
@@ -38,6 +41,7 @@ export const messagePayload = z.discriminatedUnion('type', [
   resolutionPayload,
   systemPayload,
   tombstonePayload,
+  encryptedPayload,
 ]);
 export type MessagePayload = z.infer<typeof messagePayload>;
 export type MessageType = MessagePayload['type'];
@@ -46,6 +50,7 @@ export type MessageType = MessagePayload['type'];
 export const sendContent = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string().trim().min(1).max(LIMITS.messageText) }),
   z.object({ type: z.literal('media'), assetId: objectId, caption: z.string().trim().max(LIMITS.messageText).optional() }),
+  encryptedPayload,
 ]);
 
 export const sendMessageInput = z
@@ -62,7 +67,10 @@ export const sendMessageInput = z
   });
 export type SendMessageInput = z.input<typeof sendMessageInput>;
 
-export const editMessageInput = z.object({ text: z.string().trim().min(1).max(LIMITS.messageText) });
+export const editMessageInput = z.union([
+  z.object({ text: z.string().trim().min(1).max(LIMITS.messageText) }),
+  z.object({ encrypted: encryptedBody }),
+]);
 export const reactionInput = z.object({ emoji: z.string().min(1).max(16) });
 export const messagesQuery = z.object({
   beforeSeq: z.coerce.number().int().positive().optional(),
@@ -148,5 +156,7 @@ export function payloadExcerpt(payload: MessagePayload, max = 140): string {
       return clip(payload.text);
     case 'deleted':
       return 'Message deleted';
+    case 'encrypted':
+      return 'Encrypted message';
   }
 }

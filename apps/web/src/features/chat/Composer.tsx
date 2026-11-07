@@ -1,10 +1,11 @@
-import { Check, Info, ListChecks, Paperclip, Plus, SendHorizontal, Users, X } from 'lucide-react';
+import { Check, Info, Lock, ListChecks, Paperclip, Plus, SendHorizontal, Users, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { ALLOWED_MIME, payloadExcerpt, type MessageDTO, type Posture, type SignedUpload } from '@strata/shared';
 import { api } from '../../api/client';
 import { IconButton, cx } from '../../components/ui';
 import { getSocket } from '../../realtime/socket';
 import { sendText } from '../../state/actions';
+import { useE2ee, useRoomCrypto } from '../e2ee/service';
 import { toast, toastError } from '../../state/store';
 import { CreateBlockDialog, type BlockKind } from '../blocks/CreateBlockDialog';
 import { PosturePicker } from './PosturePicker';
@@ -59,6 +60,8 @@ export function Composer({ roomId, replyTo, onClearReply, closedReason }: { room
   const input = useRef<HTMLTextAreaElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const typingAt = useRef(0);
+  const lock = useRoomCrypto(roomId);
+  const replyOpened = useE2ee((s) => (replyTo ? s.clear[replyTo.id]?.text : undefined));
 
   useEffect(() => {
     setText('');
@@ -81,6 +84,28 @@ export function Composer({ roomId, replyTo, onClearReply, closedReason }: { room
     return (
       <div className="px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
         <p className="st-glass rounded-[20px] px-4 py-3 text-center text-sm text-ink-2">{closedReason}</p>
+      </div>
+    );
+  }
+
+  if (lock === 'locked' || lock === 'setup' || lock === 'waiting') {
+    return (
+      <div className="px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
+        <div className="st-glass flex items-center gap-3 rounded-[20px] px-4 py-3 text-sm text-ink-2">
+          <Lock size={16} className="shrink-0 text-violet" aria-hidden />
+          <p className="min-w-0 flex-1">
+            {lock === 'locked'
+              ? 'Unlock encryption to read and send messages here.'
+              : lock === 'setup'
+                ? 'Set up encryption to use this conversation.'
+                : 'Setting up encryption for this conversation. If this takes a while, someone who already has the key needs to open Strata.'}
+          </p>
+          {lock === 'locked' && (
+            <button type="button" className="shrink-0 rounded-lg px-2 py-1 font-semibold text-violet hover:underline" onClick={() => useE2ee.setState({ unlockDismissed: false })}>
+              Unlock
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -153,7 +178,7 @@ export function Composer({ roomId, replyTo, onClearReply, closedReason }: { room
       {replyTo && (
         <div className="mb-1 flex items-center gap-2 st-glass rounded-xl px-3 py-1.5 text-sm animate-settle">
           <span className="min-w-0 flex-1 truncate text-ink-2">
-            Replying to <span className="font-medium text-ink">{replyTo.sender.name}</span>: {payloadExcerpt(replyTo.payload, 80)}
+            Replying to <span className="font-medium text-ink">{replyTo.sender.name}</span>: {replyOpened ?? payloadExcerpt(replyTo.payload, 80)}
           </span>
           <IconButton label="Cancel reply" className="size-6" onClick={onClearReply}>
             <X size={14} />
@@ -194,7 +219,7 @@ export function Composer({ roomId, replyTo, onClearReply, closedReason }: { room
           rows={1}
           value={text}
           aria-label="Message"
-          placeholder={uploading ? 'Uploading…' : 'Write a message'}
+          placeholder={uploading ? 'Uploading…' : lock === 'ready' ? 'Write an encrypted message' : 'Write a message'}
           onChange={(e) => {
             setText(e.target.value);
             announceTyping(e.target.value.length > 0);

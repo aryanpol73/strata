@@ -43,6 +43,9 @@ async function toLinkDTO(c: IGuestCapability): Promise<GuestLinkDTO> {
 export async function createLink(userId: string, branchId: string, input: z.output<typeof createGuestLinkInput>): Promise<GuestLinkCreated> {
   const { room } = await requireMember(branchId, userId);
   if (room.kind !== 'branch') throw badRequest('Guests can only be invited to a branch');
+  if (room.encrypted) {
+    throw new AppError(409, 'CONFLICT', 'This branch is end-to-end encrypted, so a guest could not read it. Start a branch with guests allowed instead.');
+  }
   assertAcceptsMessages(room);
 
   const token = randomToken();

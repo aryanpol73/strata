@@ -1,6 +1,6 @@
 # Development checklist
 
-Last updated 2026-11-05. The rule here is that nothing is marked complete without evidence.
+Last updated 2026-11-07. The rule here is that nothing is marked complete without evidence.
 
 - **Automated** means covered by a passing server, client or shared test.
 - **Browser** means covered by an automated Playwright test, run against the production build with its real CSP.
@@ -10,10 +10,10 @@ Last updated 2026-11-05. The rule here is that nothing is marked complete withou
 | Suite | Result | What it runs against |
 | --- | --- | --- |
 | `packages/shared` | 9 of 9 | Yjs documents |
-| `apps/server` | 228 of 228 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients, and a second real server process |
+| `apps/server` | 257 of 257 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients, and a second real server process |
 | `apps/web` | 20 of 20 | Store and block session logic |
-| `apps/e2e` | 72 of 72 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
-| **Total** | **329 of 329** | |
+| `apps/e2e` | 89 of 89 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
+| **Total** | **375 of 375** | |
 
 Type-checking passes in all packages, with `strict` and `noUncheckedIndexedAccess`. Production builds pass. The largest
 web chunk is 273 KB (88 KB gzipped). Accessibility audits (axe, WCAG 2.1 AA) pass on the main screens in all four looks: Violet and Emerald, each dark and light, including every Settings section.
@@ -83,6 +83,34 @@ between Canvas and source, and selecting a posture.
 An installed app keeps the icon it was installed with until it's reinstalled, and push notifications always use the
 violet icon. Photos change for other people the next time they load the conversation, not live. Guests never see photos.
 
+### Notifications and digests
+
+Investigated after notifications weren't arriving. The causes, and what changed:
+
+- [x] **Push was never switched on.** It needs a key pair nobody had set. Keys are now generated once and kept in MongoDB (Automated)
+- [x] **Push only went to people with no open connection,** which excluded a phone with the app in the background. It now goes whenever no window is in front of the person (Automated)
+- [x] **Messages showed no alert while the app was open elsewhere.** They now raise an in-app alert, an unread count in the tab title and on an installed app's icon
+- [x] **Nobody was asked to turn push on.** A prompt now appears in the inbox, and Settings shows the real state of this device, with a way to turn it off
+- [x] **Digest was invisible.** It now has a held-items list on the Attention screen with a "Send now" button, a per-conversation "Digest only" setting, a plain explanation in Settings, and a summary that names the conversations (Automated)
+- [ ] **Real push delivery** to a real browser subscription is still unverified, and push on an iPhone needs the app added to the home screen
+- [ ] **The free Render plan sleeps,** so timed work such as digests runs late while it does. See the deployment guide
+
+### End-to-end encryption
+
+- [x] Text messages in direct conversations, groups and branches are encrypted in the browser, and the server stores only ciphertext (Automated, Browser)
+- [x] The server refuses plaintext in an encrypted conversation, and refuses ciphertext in a plain one (Automated)
+- [x] Keys: a passphrase-protected backup, per-conversation keys sealed to each member, sharing with late joiners, and replacement when someone leaves (Automated, Browser)
+- [x] A new device needs the passphrase, a wrong one is refused, and a changed passphrase keeps access (Browser)
+- [x] Security codes, and a warning that blocks sharing when someone's key changes until it's accepted (Browser)
+- [x] Replies, edits and inbox previews work on encrypted messages (Browser)
+- [x] Guests can't be invited to an encrypted branch, and a branch with guests says it isn't encrypted (Automated, Browser)
+- [ ] **No independent review.** This is a custom protocol built from standard browser primitives
+- [ ] **Files and images are not end-to-end encrypted**
+- [ ] **No forward secrecy per message,** and no key transparency. See the security model for the full list of limits
+- [ ] **Existing conversations are not converted.** Only conversations started after someone sets up encryption are encrypted
+- [ ] **Server-side search can't cover encrypted conversations.** They're searched on the device, among opened messages
+- [ ] **Real phones and slow networks** haven't been tried. The passphrase step uses 600,000 PBKDF2 rounds, which is slower on older phones
+
 ### Failure recovery
 
 Simulated against the production build with real processes: Redis wiped, restarted, down while running and down at boot;
@@ -107,12 +135,15 @@ and everything recovered by itself. Graceful `SIGTERM` shutdown isn't covered, b
 | Item | Notes |
 | --- | --- |
 | Gemini ecosystem research | **Not received.** Requirements come from the brief alone |
-| Email verification and password reset | Needs an email provider |
+| Email verification and password reset | Needs an email provider. Also the only recovery for a forgotten account password, which is separate from the encryption passphrase, and which can't be recovered at all |
 | Two-factor authentication | |
 | Abuse reporting and moderation | |
 | Upload malware scanning | |
 | Account deletion and data export | |
 | External penetration test | Should happen before public launch |
+| Independent review of the encryption protocol | Should happen before anyone relies on it against a capable attacker |
+| Encrypted attachments | Needs client-side encryption before upload, and changes to media validation |
+| Upgrade an existing conversation to encrypted | Not offered. New conversations only |
 
 **Future features** (Decision Ledger, Time-Scrubber, Voice Chapters, Symmetrical Attention, Entity Drawer, Ghost Bubbles,
 Multi-Persona Identity, Shadow Scribe, Spatial Audio, Slow-Pact Rooms, Micro-Applets, Cascade Redaction) are deliberately
@@ -154,6 +185,8 @@ Kept here because each one shaped a test that now guards it.
 | A failed Socket.IO publish during a Redis outage crashed the process | Failure simulation, after the fix above | **High** |
 | With reduced motion, every press left a ripple element behind in the button | Browser test | Low |
 | Button motion styles overrode `absolute`, so the phone message menu took up its own line | Reviewing screenshots | Low |
+| Encrypting a key version could leave a room with no usable key if the request was refused after the version moved | Encryption server tests | **High** |
+| A forgotten wait in a test navigated away mid-send, which looked like an encryption failure | Repeating the browser tests | Low |
 | A clock stepping backwards drained the socket budget | Client test | Low |
 | Two simultaneous refreshes cleared the winner's cookie, signing the user out | Reloading in the browser | **High** |
 | After a refused block edit, every later edit from that client failed | Client test | **High** |

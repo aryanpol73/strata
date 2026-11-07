@@ -1,4 +1,4 @@
-import type { Appearance } from '@strata/shared';
+import type { Appearance, KeyBackup } from '@strata/shared';
 import { Schema, model, type Types } from 'mongoose';
 
 export interface IUser {
@@ -11,6 +11,7 @@ export interface IUser {
   avatarPrivate: boolean;
   showOnline: boolean;
   appearance: Appearance | null;
+  e2ee: { publicKey: string; backup: KeyBackup; updatedAt: Date } | null;
   bio: string;
   createdAt: Date;
 }
@@ -25,6 +26,7 @@ const userSchema = new Schema<IUser>(
     avatarPrivate: { type: Boolean, default: false },
     showOnline: { type: Boolean, default: true },
     appearance: { type: Schema.Types.Mixed, default: null },
+    e2ee: { type: Schema.Types.Mixed, default: null },
     bio: { type: String, default: '', maxlength: 280 },
   },
   { timestamps: true },

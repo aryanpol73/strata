@@ -45,8 +45,7 @@ roomMessageRoutes.post('/:id/messages', limits.send, limitBlockingAck, async (re
 export const messageRoutes = Router();
 
 messageRoutes.patch('/:id', async (req, res) => {
-  const { text } = parse(editMessageInput, req.body);
-  res.json({ message: await messages.editMessage(id(req), currentUser(req).id, text) });
+  res.json({ message: await messages.editMessage(id(req), currentUser(req).id, parse(editMessageInput, req.body)) });
 });
 
 messageRoutes.delete('/:id', async (req, res) => {

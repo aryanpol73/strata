@@ -30,6 +30,8 @@ export interface ServerToClientEvents {
   'block:update': (e: { blockId: string; seq: number; update: Uint8Array; origin: string }) => void;
   'canvas:changed': (e: { roomId: string; change: CanvasChange }) => void;
   'notification:new': (e: { notification: NotificationDTO }) => void;
+  /** Someone's keys changed, or a key was shared, so this client should check what it can now open. */
+  'keys:updated': (e: { roomId: string }) => void;
   'ack:updated': (e: { roomId: string; status: AckStatusDTO }) => void;
   'session:revoked': (e: { reason: string }) => void;
 }
@@ -45,6 +47,8 @@ export interface BlockJoinResult {
 
 export interface ClientToServerEvents {
   typing: (e: { roomId: string; active: boolean }) => void;
+  /** Tells the server whether this window is in front, so a notification goes where someone will see it. */
+  'client:visibility': (e: { visible: boolean }) => void;
   'receipt:delivered': (e: { roomId: string; seq: number }) => void;
   'block:join': (e: { blockId: string; stateVector?: Uint8Array }, ack: Ack<BlockJoinResult>) => void;
   'block:update': (e: { blockId: string; update: Uint8Array; clientUpdateId: string }, ack: Ack<{ seq: number }>) => void;

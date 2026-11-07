@@ -1,3 +1,5 @@
+import { searchOpened } from '../e2ee/service';
+import { NotifyMode } from './NotifyMode';
 import { BellOff, GitBranch, Search, UserMinus, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -129,7 +131,8 @@ export function SearchDialog({ onClose }: { onClose: () => void }) {
     const mine = ++seq.current;
     const timer = setTimeout(() => {
       api<{ hits: SearchHit[] }>('/search', { query: { q: query.trim() } })
-        .then((r) => mine === seq.current && setHits(r.hits))
+        // Encrypted conversations can't be searched on the server, so they're searched here, among messages already opened.
+        .then((r) => mine === seq.current && setHits([...r.hits, ...searchOpened(query.trim())]))
         .catch(toastError);
     }, 200);
     return () => clearTimeout(timer);
@@ -234,6 +237,7 @@ export function RoomInfoDialog({ room, branches, onClose }: { room: RoomDTO; bra
           <h3 className="mb-1.5 flex items-center gap-1.5 text-[13px] font-medium text-ink-2">
             <BellOff size={14} /> Notifications
           </h3>
+          <NotifyMode roomId={room.id} />
           {muted ? (
             <Button className="h-8" onClick={() => mute(null)}>
               Unmute (until {shortTime(room.me.mutedUntil!)})

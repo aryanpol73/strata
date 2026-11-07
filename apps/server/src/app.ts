@@ -17,6 +17,7 @@ import { branchGuestRoutes, guestLinkRoutes, guestRoutes } from './modules/guest
 import { mediaRoutes } from './modules/media/routes.js';
 import { messageRoutes, roomMessageRoutes, searchRoutes } from './modules/messages/routes.js';
 import { roomRoutes } from './modules/rooms/routes.js';
+import { e2eeRoutes } from './modules/e2ee/routes.js';
 import { avatarRoutes, userRoutes } from './modules/users/routes.js';
 
 function apiRouter() {
@@ -31,6 +32,7 @@ function apiRouter() {
   api.use('/guest', guestRoutes);
   api.use('/media', mediaRoutes);
   api.use('/avatars', avatarRoutes);
+  api.use('/e2ee', e2eeRoutes);
   api.use('/users', userRoutes);
   api.use('/notifications', notificationRoutes);
   api.use('/search', searchRoutes);

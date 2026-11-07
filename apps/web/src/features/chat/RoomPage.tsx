@@ -8,6 +8,8 @@ import {
   GitMerge,
   Info,
   Layers,
+  Lock,
+  LockOpen,
   PanelRightClose,
   PanelRightOpen,
   RotateCcw,
@@ -28,7 +30,10 @@ import type {
 import { ApiError, api } from '../../api/client';
 import { Avatar, Button, Dialog, EmptyState, IconButton, Pill, Segmented, Spinner, cx, dayLabel, timeLabel } from '../../components/ui';
 import { getSocket, type StrataSocket } from '../../realtime/socket';
-import { acknowledge, loadMessages, loadOlder, loadRoom, markRead, retryPending } from '../../state/actions';
+import { EncryptionDialog } from '../e2ee/EncryptionDialog';
+import { KeyChangeNotice } from '../e2ee/KeyChangeNotice';
+import { clearText, ensureRoomKeys, useE2ee } from '../e2ee/service';
+import { acknowledge, editMessageText, loadMessages, loadOlder, loadRoom, markRead, retryPending } from '../../state/actions';
 import { toast, toastError, useStore, type PendingMessage } from '../../state/store';
 import { BlockCard } from '../blocks/BlockCard';
 import { AddParticipantsDialog, CreateBranchDialog, GuestDialog, MergeDialog, ResolveDialog } from '../branches/dialogs';
@@ -390,6 +395,11 @@ export function RoomPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const room = useStore((s) => s.rooms[roomId]);
+  const e2eeStatus = useE2ee((s) => s.status);
+  const encrypted = !!room?.encryption?.enabled;
+  useEffect(() => {
+    if (encrypted && e2eeStatus === 'ready') void ensureRoomKeys(roomId).catch(() => {});
+  }, [roomId, encrypted, e2eeStatus]);
   const parent = useStore((s) => (room?.parentRoomId ? s.rooms[room.parentRoomId] : undefined));
   const online = useStore((s) => s.online);
   const me = useStore((s) => s.me)!;
@@ -402,7 +412,7 @@ export function RoomPage() {
   const [branchFrom, setBranchFrom] = useState<MessageDTO | null>(null);
   const [delivery, setDelivery] = useState<MessageDTO | null>(null);
   const [refs, setRefs] = useState<MessageReferenceDTO[] | null>(null);
-  const [dialog, setDialog] = useState<'resolve' | 'merge' | 'guests' | 'add' | 'info' | null>(null);
+  const [dialog, setDialog] = useState<'resolve' | 'merge' | 'guests' | 'add' | 'info' | 'encryption' | null>(null);
   const [mobileView, setMobileView] = useState<'stream' | 'canvas'>('stream');
   const [focusBlock, setFocusBlock] = useState<string | null>(null);
   const isDesktop = useIsDesktop();
@@ -440,7 +450,14 @@ export function RoomPage() {
       onBranch: setBranchFrom,
       onCanvas: async (m) => {
         try {
-          const { block } = await api<{ block: { id: string } }>(`/rooms/${m.roomId}/canvas/blocks`, { method: 'POST', body: { fromMessageId: m.id } });
+          const body: Record<string, unknown> = { fromMessageId: m.id };
+          if (m.payload.type === 'encrypted') {
+            const text = clearText(m);
+            if (!text) throw new Error('This message is still locked');
+            if (!confirm('The Canvas is not end-to-end encrypted. Adding this message lets the server read it. Add it anyway?')) return;
+            body.content = { kind: 'quote', text };
+          }
+          const { block } = await api<{ block: { id: string } }>(`/rooms/${m.roomId}/canvas/blocks`, { method: 'POST', body });
           showBlock(block.id);
           toast('Added to Canvas');
         } catch (err) {
@@ -448,7 +465,7 @@ export function RoomPage() {
         }
       },
       onReact: (m, emoji) => void api(`/messages/${m.id}/reactions`, { method: 'POST', body: { emoji } }).catch(toastError),
-      onEdit: (m, text) => void api(`/messages/${m.id}`, { method: 'PATCH', body: { text } }).catch(toastError),
+      onEdit: (m, text) => void editMessageText(m, text).catch(toastError),
       onDelete: (m) => {
         if (confirm('Delete this message for everyone?')) void api(`/messages/${m.id}`, { method: 'DELETE' }).catch(toastError);
       },
@@ -547,6 +564,9 @@ export function RoomPage() {
           <div className="lg:hidden">
             <Segmented role="tablist" label="View" value={mobileView} onChange={setMobileView} options={[['stream', 'stream'], ['canvas', 'canvas']]} />
           </div>
+          <IconButton label={room.encryption.enabled ? 'Encrypted conversation' : 'Not end-to-end encrypted'} onClick={() => setDialog('encryption')}>
+            {room.encryption.enabled ? <Lock size={17} className="text-violet" /> : <LockOpen size={17} className="text-ink-3" />}
+          </IconButton>
           <IconButton label="Conversation details" className="max-lg:hidden" onClick={() => setDialog('info')}>
             <Info size={18} />
           </IconButton>
@@ -555,6 +575,7 @@ export function RoomPage() {
           </IconButton>
         </header>
 
+        <KeyChangeNotice roomId={room.id} onView={() => setDialog('encryption')} />
         {room.kind === 'branch' && room.branch && (
           <BranchBar room={room} onResolve={() => setDialog('resolve')} onMerge={() => setDialog('merge')} onGuests={() => setDialog('guests')} onAdd={() => setDialog('add')} />
         )}
@@ -609,6 +630,7 @@ export function RoomPage() {
       {dialog === 'merge' && <MergeDialog room={room} onClose={() => setDialog(null)} />}
       {dialog === 'guests' && <GuestDialog room={room} onClose={() => setDialog(null)} />}
       {dialog === 'add' && <AddParticipantsDialog room={room} parent={parent} onClose={() => setDialog(null)} />}
+      {dialog === 'encryption' && <EncryptionDialog room={room} onClose={() => setDialog(null)} />}
       {dialog === 'info' && <RoomInfoDialog room={room} branches={branches} onClose={() => setDialog(null)} />}
     </div>
   );

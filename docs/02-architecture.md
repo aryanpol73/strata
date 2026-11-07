@@ -119,6 +119,22 @@ live blocks can still be embedded in a Canvas.
 Deleting clears the payload but keeps the row, so `seq` order, replies, and citations remain valid. Citations then show
 "original message deleted". This is also the base that Cascade Redaction will build on.
 
+### ADR-11: End-to-end encryption by room key, with the server unable to read text
+
+A conversation has a symmetric key, and each member holds a copy sealed to their own public key. Messages are encrypted in
+the browser, so the server's message payload is `{ type: 'encrypted', kv, iv, ct }` and every server-made summary reads
+"Encrypted message".
+
+Alternatives considered: a per-message ratchet (Signal), which gives forward secrecy but needs per-device sessions and
+makes group delivery and history sharing far harder; and encrypting at rest on the server, which would break search and
+still leave the server able to read everything. A room key per version keeps groups, new members and history sharing
+simple, and rotation on removal covers the case that matters most.
+
+Consequences: the server can no longer search, preview or validate encrypted content, so search is local and previews are
+opened on the device. Features that need the server to read content are kept out of encrypted text and labelled: live
+blocks, the Canvas, resolution summaries, and guest branches. Key distribution needs a member online, so a newly added
+member reads once someone who holds the key next opens Strata. This is a custom protocol and is not independently reviewed.
+
 ## Infrastructure notes
 
 | Component | Use | Without it |
@@ -126,7 +142,7 @@ Deleting clears the payload but keeps the row, so `seq` order, replies, and cita
 | MongoDB | Source of truth | Required |
 | Redis | Socket.IO adapter, BullMQ, rate limits, presence | Required in production. In development, the server warns and falls back to a single-node mode with an interval-driven sweep |
 | Cloudinary | Media in production | The disk provider is a real implementation for development |
-| Web Push (VAPID) | Background notifications | In-app notifications still work |
+| Web Push (VAPID) | Background notifications | Keys are generated on first use and kept in MongoDB, so nothing needs configuring. In-app notifications work regardless |
 
 Single-node mode shares all business logic. Only the trigger for the sweep and the rate-limit store differ.
 

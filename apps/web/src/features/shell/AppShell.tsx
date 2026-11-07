@@ -1,6 +1,8 @@
 import { Bell, BellRing, GitBranch, MessagesSquare, Plus, Search, User, WifiOff } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAppearance } from '../settings/appearance';
+import { useE2ee } from '../e2ee/service';
+import { NotificationPrompt } from './NotificationPrompt';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import type { RoomDTO } from '@strata/shared';
 import { Avatar, Button, EmptyState, IconButton, Pill, Spinner, cx, shortTime } from '../../components/ui';
@@ -35,6 +37,8 @@ function Counts({ room }: { room: RoomDTO }) {
 function ConversationCard({ room }: { room: RoomDTO }) {
   const online = useStore((s) => s.online);
   const me = useStore((s) => s.me);
+  const preview = useE2ee((s) => s.previews[room.id]);
+  const lastText = preview && preview.seq === room.lastMessage?.seq ? preview.text : room.lastMessage?.text;
   const directOnline = room.kind === 'direct' && room.members.some((m) => m.userId !== me?.id && online[m.userId]);
   return (
     <NavLink to={`/r/${room.id}`} className={({ isActive }) => cx('st-press flex items-center gap-3 rounded-[20px] border p-3', isActive ? 'border-violet bg-tint-violet' : 'border-line bg-surface hover:border-line-strong')}>
@@ -45,7 +49,7 @@ function ConversationCard({ room }: { room: RoomDTO }) {
           {room.lastMessage && <span className="ml-auto shrink-0 font-mono text-[11px] text-ink-3">{shortTime(room.lastMessage.at)}</span>}
         </span>
         <span className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{room.lastMessage ? `${room.lastMessage.senderName}: ${room.lastMessage.text}` : 'No messages yet'}</span>
+          <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{room.lastMessage ? `${room.lastMessage.senderName}: ${lastText}` : 'No messages yet'}</span>
           <Counts room={room} />
         </span>
       </span>
@@ -159,6 +163,7 @@ function InboxPane({ onNew, onSearch }: { onNew: () => void; onSearch: () => voi
         ))}
       </div>
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto px-3 pb-28 lg:pb-3">
+        <NotificationPrompt />
         <NeedsYouStrip />
         {!roomsLoaded ? (
           <div className="flex justify-center py-8">

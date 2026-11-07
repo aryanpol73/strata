@@ -68,6 +68,7 @@ Each recipient's timezone, quiet hours and personal rules always have the final 
 
 ### Everything else you'd expect
 
+- **End-to-end encryption:** messages are encrypted on your device, with security codes to check who you're talking to
 - **Messaging:** direct and group conversations, replies, reactions, editing, deletion, search and file sharing
 - **Real-time:** typing indicators, presence, and delivery and read receipts
 - **Offline:** cached conversations, plus an outbox that sends queued messages when the connection returns
@@ -80,6 +81,7 @@ Each recipient's timezone, quiet hours and personal rules always have the final 
 - **App icon:** each person chooses their own, and the choice follows them across devices
 - **Profile photos:** in-browser cropping, with public or private visibility
 - **Privacy controls:** choose who sees your photo, or appear offline
+- **Notifications you can see:** a prompt to turn on push, alerts for messages that arrive while you're elsewhere, unread counts in the tab and on the app icon, and a digest you can preview and send early
 - **Account security:** change your password, and review or sign out devices
 - **Accessibility options:** text size and reduced motion
 
@@ -195,7 +197,7 @@ These failures were simulated against the production build, using real processes
 - A strict Content Security Policy applies, and production won't start with unsafe configuration.
 - Profile photos are checked by their actual bytes, and going private retires the old address.
 
-> **Strata is not end-to-end encrypted.** Messages are protected in transit and stored on the server, which can read them to power search and notifications.
+> **Encryption, stated plainly.** Text in direct conversations, groups and branches is end-to-end encrypted: the server stores only ciphertext and cannot read it. Files, the Canvas, live blocks, branch summaries and guest branches are not, and are labelled. The protocol uses standard browser cryptography but is Strata's own, and **has not been independently reviewed**.
 
 Read the full [security model](docs/05-security-model.md), including its [known gaps](docs/05-security-model.md#known-gaps-before-public-launch).
 

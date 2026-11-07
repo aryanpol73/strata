@@ -6,7 +6,10 @@ import { Avatar, Button, Field, IconButton, Input, Pill, Segmented, Spinner, Tex
 import { connectSocket, disconnectSocket } from '../../realtime/socket';
 import { db } from '../../state/db';
 import { toast, toastError, useStore } from '../../state/store';
+import { securityCode } from '../e2ee/crypto';
+import { changePassphrase, resetE2ee, useE2ee } from '../e2ee/service';
 import { PhotoDialog } from './PhotoDialog';
+import { disablePush, enablePush, pushState } from './push';
 import { changeAppearance, useAppearance } from './appearance';
 import { hasInstallPrompt, offerInstall } from './install';
 import { Card, Choice, PageTitle, Row, SELECT, Toggle } from './parts';
@@ -181,6 +184,96 @@ function Devices() {
   );
 }
 
+/** Both the first passphrase and a replacement need the same two fields, so they're one small form. */
+function PassphraseForm({ action, label, onDone, fields = ['New encryption passphrase', 'Repeat new passphrase'] }: { action: (passphrase: string) => Promise<void>; label: string; onDone: () => void; fields?: [string, string] }) {
+  const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await action(next);
+      setNext('');
+      setAgain('');
+      onDone();
+    } catch (err) {
+      toastError(err);
+    }
+    setBusy(false);
+  };
+  return (
+    <form onSubmit={submit} className="space-y-3 py-3">
+      <Field label={fields[0]} hint="At least 10 characters.">
+        <Input type="password" autoComplete="new-password" minLength={10} value={next} onChange={(e) => setNext(e.target.value)} />
+      </Field>
+      <Field label={fields[1]} hint={again && next !== again ? "These don't match yet." : undefined}>
+        <Input type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
+      </Field>
+      <Button type="submit" variant="primary" busy={busy} disabled={next.length < 10 || next !== again}>
+        {label}
+      </Button>
+    </form>
+  );
+}
+
+export function EncryptionSection() {
+  const me = useStore((s) => s.me)!;
+  const status = useE2ee((s) => s.status);
+  const [code, setCode] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+
+  useEffect(() => {
+    if (me.e2ee) void securityCode(me.e2ee.publicKey).then(setCode);
+  }, [me.e2ee]);
+
+  return (
+    <>
+      <PageTitle title="Encryption" hint="Your messages are encrypted on this device, so only the people in a conversation can read them." />
+      <Card title="On this device">
+        <Row
+          label="Status"
+          hint={status === 'ready' ? 'Unlocked. Messages are encrypted before they leave this device.' : status === 'locked' ? 'Locked. Enter your passphrase to read your encrypted messages.' : status === 'needs-setup' ? 'Not set up yet.' : 'Checking…'}
+        >
+          {status === 'locked' && (
+            <Button className="h-9 px-3 text-[13px]" onClick={() => useE2ee.setState({ unlockDismissed: false })}>
+              Unlock
+            </Button>
+          )}
+        </Row>
+        {code && <Row label="Your security code" hint={<span className="font-mono tracking-wide">{code}</span>} />}
+        <p className="py-3 text-[13px] text-ink-2">People can compare this with the code they see for you in a conversation's encryption details. If the two match, nobody has swapped your key.</p>
+      </Card>
+
+      {status === 'ready' && (
+        <Card title="Passphrase" hint="It protects the backup of your key, which is how a new device unlocks your history. Changing it keeps the same keys.">
+          <PassphraseForm label="Change passphrase" action={changePassphrase} onDone={() => toast('Passphrase changed')} />
+        </Card>
+      )}
+
+      <Card title="What is and isn't encrypted">
+        <Row label="Encrypted" hint="The text of messages in direct conversations, groups and branches, including edits." />
+        <Row label="Not encrypted" hint="Who is in a conversation and when messages were sent, files and images, the Canvas, live blocks, branch titles and summaries, and guest branches." />
+        <Row label="Searching" hint="The server can't read encrypted messages, so searching them only covers messages already opened on this device." />
+      </Card>
+
+      {me.e2ee && (
+        <Card title="Start over" hint="If you've lost your passphrase, new keys let you carry on. Old messages stay locked until another member of each conversation shares its history with you again.">
+          {resetting ? (
+            <PassphraseForm label="Reset encryption keys" action={resetE2ee} onDone={() => setResetting(false)} fields={['Passphrase for your new keys', 'Repeat passphrase for your new keys']} />
+          ) : (
+            <div className="py-3">
+              <Button variant="danger" onClick={() => setResetting(true)}>
+                Reset encryption keys
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
+    </>
+  );
+}
+
 export function SecuritySection() {
   const me = useStore((s) => s.me)!;
   return (
@@ -285,19 +378,49 @@ const ZONES: string[] = (() => {
 const RULE_LABEL = { deliver: 'Notify me now', digest: 'Save for my digest', mute: 'Never notify me' };
 const POSTURE_LABEL: Record<string, string> = { standard: 'standard messages', digest: 'digest messages', blocking_ack: 'acknowledgement requests' };
 
-async function enablePush() {
-  try {
-    const { publicKey } = await api<{ publicKey: string | null }>('/notifications/push-key');
-    if (!publicKey) return toast('Push is not configured on this server yet', 'error');
-    if ((await Notification.requestPermission()) !== 'granted') return toast('Notifications are blocked in your browser', 'error');
-    const registration = await navigator.serviceWorker.ready;
-    const key = Uint8Array.from(atob(publicKey.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
-    const sub = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-    await api('/notifications/push-subscriptions', { method: 'POST', body: sub.toJSON() });
-    toast('Push notifications are on');
-  } catch (err) {
-    toastError(err);
-  }
+const PUSH_HINT = {
+  unsupported: 'This browser can\'t receive push notifications. On an iPhone, add Strata to your home screen first.',
+  blocked: 'Blocked in your browser. Allow notifications for this site in its settings, then come back.',
+  off: 'Not turned on for this device yet.',
+  on: 'On for this device.',
+} as const;
+
+function PushRow() {
+  const [state, setState] = useState(pushState);
+  const [busy, setBusy] = useState(false);
+  const run = async (work: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await work();
+    } catch (err) {
+      toastError(err);
+    }
+    setState(pushState());
+    setBusy(false);
+  };
+  return (
+    <Row label="This device" hint={PUSH_HINT[state]}>
+      {state === 'off' && (
+        <Button className="h-9 px-3 text-[13px]" busy={busy} onClick={() => run(async () => ((await enablePush()) === 'denied' ? toast('Notifications were not allowed', 'error') : toast('Push notifications are on')))}>
+          Turn on
+        </Button>
+      )}
+      {state === 'on' && (
+        <Button className="h-9 px-3 text-[13px]" busy={busy} onClick={() => run(disablePush)}>
+          Turn off
+        </Button>
+      )}
+    </Row>
+  );
+}
+
+function DigestHelp({ windows }: { windows: string[] }) {
+  return (
+    <p className="py-3 text-[13px] text-ink-2">
+      A digest holds messages until {windows.join(' or ')} and then notifies you once, so a busy conversation can't keep interrupting you. Nothing is a digest
+      unless the sender chose Digest, or you set a conversation to Digest only. Held messages are listed on the Attention screen, where you can also send the digest early.
+    </p>
+  );
 }
 
 export function NotificationsSection() {
@@ -334,13 +457,7 @@ export function NotificationsSection() {
         <Row label="Push notifications">
           <Toggle label="Push notifications" checked={prefs.channels.push} onChange={(push) => update({ channels: { ...prefs.channels, push } })} />
         </Row>
-        {'PushManager' in window && (
-          <Row label="This device" hint="Each device has to allow push once.">
-            <Button className="h-9 px-3 text-[13px]" onClick={enablePush}>
-              Enable push
-            </Button>
-          </Row>
-        )}
+        <PushRow />
       </Card>
 
       <Card title="Timing">
@@ -351,7 +468,7 @@ export function NotificationsSection() {
             ))}
           </select>
         </Row>
-        <Row label="Digest windows" hint="Digest messages arrive together at these times." stack>
+        <Row label="Digest windows" hint="Held messages arrive together at these times." stack>
           <div className="flex flex-wrap items-center gap-2">
             {prefs.digestWindows.map((w, i) => (
               <span key={i} className="flex items-center gap-1">
@@ -370,6 +487,10 @@ export function NotificationsSection() {
             )}
           </div>
         </Row>
+      </Card>
+
+      <Card title="How digests work">
+        <DigestHelp windows={prefs.digestWindows} />
       </Card>
 
       <Card title="Quiet hours">
@@ -468,7 +589,7 @@ export function PrivacySection() {
         </Row>
       </Card>
       <Card title="Your messages">
-        <Row label="Encryption" hint="Strata is not end-to-end encrypted. Messages are protected in transit and stored on the server, which can read them to power search and notifications." />
+        <Row label="Encryption" hint="Messages in direct conversations, groups and branches are end-to-end encrypted. The server can't read them. Files, the Canvas, live blocks and guest branches are not, and are protected in transit and where they're stored." />
       </Card>
     </>
   );

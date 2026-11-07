@@ -1,10 +1,10 @@
 import { Bell, BellRing, GitMerge, Layers, Moon } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { NotificationDTO, NotificationPreferences } from '@strata/shared';
 import { api } from '../../api/client';
 import { Button, EmptyState, cx, shortTime } from '../../components/ui';
-import { acknowledge } from '../../state/actions';
+import { acknowledge, loadNotifications } from '../../state/actions';
 import { toastError, useStore } from '../../state/store';
 
 const FILTERS = [
@@ -66,6 +66,83 @@ function NeedsYouCard({ item }: { item: ReturnType<typeof useStore.getState>['ne
   );
 }
 
+interface DigestQueue {
+  total: number;
+  nextAt: string | null;
+  items: { roomId: string; roomName: string; count: number }[];
+}
+
+/** Waiting should never be a mystery: this is exactly what's held, when it will arrive, and a way to skip the wait. */
+function DigestCard({ windows, onSent, latest }: { windows: string[]; onSent: () => void; latest?: string }) {
+  const [queue, setQueue] = useState<DigestQueue | null>(null);
+  const [busy, setBusy] = useState(false);
+  // The click and the digest arriving both ask for a refresh, and the first answer can land last. Only the newest counts.
+  const latestAsk = useRef(0);
+  const load = () => {
+    const mine = ++latestAsk.current;
+    return api<DigestQueue>('/notifications/digest-queue')
+      .then((q) => mine === latestAsk.current && setQueue(q))
+      .catch(() => {});
+  };
+  // A digest arriving is what empties the queue, so that's when to look again. The click only asks for it.
+  useEffect(() => {
+    void load();
+  }, [latest]);
+  if (!queue) return null;
+
+  if (queue.total === 0) {
+    return (
+      <section aria-label="Held for your digest" className="mb-4 rounded-2xl border border-line bg-surface p-3.5">
+        <h2 className="text-sm font-bold">Held for your digest</h2>
+        <p className="mt-1 text-[13px] text-ink-2">
+          Nothing is waiting. Messages sent as Digest, or from conversations you've set to Digest only, wait here until {windows.join(' or ')}.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section aria-label="Held for your digest" className="mb-4 rounded-2xl border border-line-strong bg-raised p-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold">
+            {queue.total} {queue.total === 1 ? 'message' : 'messages'} held for your digest
+          </h2>
+          {queue.nextAt && <p className="text-[13px] text-ink-2">Arrives {new Date(queue.nextAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</p>}
+        </div>
+        <Button
+          variant="primary"
+          className="h-9 shrink-0 px-3 text-[13px]"
+          busy={busy}
+          onClick={() => {
+            setBusy(true);
+            api('/notifications/digest/flush', { method: 'POST' })
+              .then(() => {
+                onSent();
+                // Delivery happens a moment after the click, and anything already read is dropped without a notification,
+                // so there may be nothing arriving to prompt a refresh. Look again shortly instead.
+                for (const wait of [0, 1500, 4000]) setTimeout(() => void load(), wait);
+              })
+              .catch(toastError)
+              .finally(() => setBusy(false));
+          }}
+        >
+          Send now
+        </Button>
+      </div>
+      <ul className="mt-2 divide-y divide-line text-sm">
+        {queue.items.map((i) => (
+          <li key={i.roomId} className="flex items-center justify-between py-1.5">
+            <Link to={`/r/${i.roomId}`} className="min-w-0 truncate font-medium hover:underline">
+              {i.roomName}
+            </Link>
+            <span className="font-mono text-xs text-ink-2">{i.count}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function AttentionPage() {
   const notifications = useStore((s) => s.notifications);
   const needsYou = useStore((s) => s.needsYou);
@@ -109,6 +186,8 @@ export function AttentionPage() {
             </button>
           ))}
         </div>
+
+        {filter !== 'needs' && <DigestCard latest={notifications[0]?.id} windows={prefs?.digestWindows ?? ['09:00', '17:30']} onSent={() => void loadNotifications().catch(() => {})} />}
 
         {showNeeds && (
           <section aria-label="Needs you" className="mb-4">

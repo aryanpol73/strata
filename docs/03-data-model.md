@@ -88,6 +88,16 @@ Indexes: `{state, deadline}`, `{state, reminderAt}`, `{roomId}`.
 `status` (`pending|ready`).
 Indexes: `{roomId}`, `{provider, key}` unique, TTL-style cleanup of stale `pending` rows.
 
+## Encryption
+
+| Collection | Holds | Notes |
+| --- | --- | --- |
+| `users.e2ee` | Public key, and the passphrase-protected private key backup | Null until set up. The backup is ciphertext |
+| `rooms.encrypted`, `keyVersion`, `needsRotation` | Whether messages are encrypted, the current key version, and whether a new one is due | `needsRotation` is set when someone leaves |
+| `roomkeys` | One room key version sealed to one member | Unique on `(roomId, userId, version)`. Insert-only, never overwritten. Deleted for people who leave and for replaced identities |
+| `messages.payload` | `{ type: 'encrypted', kv, iv, ct }` for encrypted conversations | `searchText` stays empty |
+| `settings` | Server-wide values, such as the generated push keys | Shared by every node |
+
 ## Invariants
 
 1. A `RoomMember` of a branch must be an active member of its parent. Leaving a room cascades to its branches.
@@ -96,3 +106,7 @@ Indexes: `{roomId}`, `{provider, key}` unique, TTL-style cleanup of stale `pendi
 4. Replies only reference messages in the same room, which keeps branch content from crossing a boundary.
 5. A branch can merge exactly once. `mergedMessageId` is written with a conditional update.
 6. Canvas and citation sources only come from rooms the actor can read.
+
+- An encrypted room never holds a plaintext text message, and a plain room never holds an encrypted one.
+- A room key version exists once. A request that creates it is refused unless it includes a copy for its own author.
+- Nothing in these collections can be turned into message text without a person's private key.

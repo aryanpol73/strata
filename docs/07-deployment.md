@@ -118,14 +118,21 @@ Note that `disk` storage doesn't work with more than one API node, unless `MEDIA
 
 ## Web Push
 
-**Not yet verified with a real browser subscription.**
+The push key pair is generated the first time it's needed and stored in MongoDB, so every node and every restart uses the
+same one. Nothing has to be configured. To supply your own, set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and
+`VAPID_SUBJECT`, and they take priority. Changing keys later invalidates every existing subscription.
 
-```bash
-pnpm --filter @strata/server exec web-push generate-vapid-keys
-```
+People turn notifications on from the prompt in their inbox or from Settings. A push is sent when none of a person's windows
+is in front of them, and says who and where but never what. **Not yet verified with a real browser subscription.**
 
-Set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT`. People then opt in from Settings. Without these keys,
-in-app notifications still work.
+If notifications never arrive, check in this order: the browser has allowed notifications for the site, Settings shows the
+device as On, the conversation isn't set to Silent or Digest only, quiet hours aren't active, and on an iPhone that Strata
+has been added to the home screen first, because Safari tabs can't receive push.
+
+**The free Render plan sleeps after 15 minutes without traffic,** so nothing timed runs while it's asleep: digests, reminders
+and acknowledgement deadlines run late, and a push can only go out once something wakes the server. A message from anyone does
+wake it. For timely delivery, have an uptime monitor request `/api/health` every few minutes. A single service kept awake all
+month uses about 744 of the 750 free hours, so keep it to one service. Check Render's terms before relying on this.
 
 ## Operations
 

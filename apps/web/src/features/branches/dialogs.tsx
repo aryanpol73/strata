@@ -1,3 +1,4 @@
+import { useE2ee } from '../e2ee/service';
 import { Check, Copy, GitBranch, Link2, Lock, ShieldAlert, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { payloadExcerpt, type GuestLinkCreated, type GuestLinkDTO, type MessageDTO, type RoomDTO } from '@strata/shared';
@@ -24,7 +25,9 @@ export function CreateBranchDialog({ message, room, onClose, onCreated }: { mess
   const [title, setTitle] = useState('');
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [isPrivate, setPrivate] = useState(false);
+  const [guests, setGuests] = useState(false);
   const [busy, setBusy] = useState(false);
+  const opened = useE2ee((s) => s.clear[message.id]?.text);
 
   const toggle = (id: string) =>
     setChosen((prev) => {
@@ -39,7 +42,7 @@ export function CreateBranchDialog({ message, room, onClose, onCreated }: { mess
     try {
       const res = await api<{ room: RoomDTO }>(`/messages/${message.id}/branches`, {
         method: 'POST',
-        body: { title: title.trim(), participantIds: [...chosen], visibility: isPrivate ? 'private' : 'listed' },
+        body: { title: title.trim(), participantIds: [...chosen], visibility: isPrivate ? 'private' : 'listed', encrypted: !guests },
       });
       useStore.getState().upsertRoom(res.room);
       onCreated(res.room.id);
@@ -65,7 +68,7 @@ export function CreateBranchDialog({ message, room, onClose, onCreated }: { mess
       }
     >
       <blockquote className="mb-3 border-l-2 border-branch pl-3 text-sm text-ink-2">
-        <span className="font-medium text-ink">{message.sender.name}</span> {payloadExcerpt(message.payload, 160)}
+        <span className="font-medium text-ink">{message.sender.name}</span> {opened ?? payloadExcerpt(message.payload, 160)}
       </blockquote>
       <div className="space-y-3">
         <Field label="What's this branch about?">
@@ -92,6 +95,14 @@ export function CreateBranchDialog({ message, room, onClose, onCreated }: { mess
           label="Private branch"
           hint={isPrivate ? 'Others in the conversation won’t know this exists until you merge a resolution.' : 'Others can see the title and status, but not the messages.'}
         />
+        {room.encryption.enabled && (
+          <Toggle
+            checked={guests}
+            onChange={setGuests}
+            label="Allow guests on this branch"
+            hint={guests ? 'A guest has no encryption keys, so this branch will not be end-to-end encrypted.' : 'This branch is end-to-end encrypted, like the conversation it came from. Guests can’t be invited.'}
+          />
+        )}
       </div>
     </Dialog>
   );
@@ -130,6 +141,7 @@ export function ResolveDialog({ room, onClose }: { room: RoomDTO; onClose: () =>
         <Textarea rows={5} value={summary} maxLength={4000} onChange={(e) => setSummary(e.target.value)} />
       </Field>
       <p className="mt-2 text-xs text-ink-2">The branch closes to new messages. You can reopen it until it's merged.</p>
+      {room.encryption.enabled && <p className="mt-1 text-xs text-ink-2">This summary isn't end-to-end encrypted, so that it can be posted back to the conversation and shown on the Canvas.</p>}
     </Dialog>
   );
 }
@@ -176,14 +188,15 @@ export function MergeDialog({ room, onClose }: { room: RoomDTO; onClose: () => v
         <h4 className="font-serif text-lg">{room.branch?.title}</h4>
         <p className="mt-1 whitespace-pre-wrap font-serif leading-relaxed">{room.branch?.resolution?.summary}</p>
       </div>
-      <div className="mt-3">
+      {!room.encryption.enabled && <div className="mt-3">
         <Toggle
           checked={openTranscript}
           onChange={setOpen}
           label="Also share the transcript, read-only"
           hint={openTranscript ? 'Everyone in the parent conversation will be able to read every message in this branch.' : 'Only the summary is shared. The discussion stays with its participants.'}
         />
-      </div>
+      </div>}
+      {room.encryption.enabled && <p className="mt-3 text-xs text-ink-2">The discussion stays encrypted and private to its participants. Only this summary is shared.</p>}
       <p className="mt-2 text-xs text-ink-3">A merge can't be undone.</p>
     </Dialog>
   );
@@ -245,6 +258,11 @@ export function GuestDialog({ room, onClose }: { room: RoomDTO; onClose: () => v
 
   return (
     <Dialog title="Invite a guest" onClose={onClose} wide>
+      {room.encryption.enabled ? (
+        <p className="text-sm text-ink-2">
+          This branch is end-to-end encrypted, so a guest couldn't read it. To invite a guest, start a new branch from the message and turn on “Allow guests on this branch”. Guest branches aren't end-to-end encrypted.
+        </p>
+      ) : (<>
       <div className="mb-3 flex gap-2 rounded-lg bg-tint-crystal p-2.5 text-sm text-ink-2">
         <ShieldAlert size={16} className="mt-0.5 shrink-0 text-crystal" />
         <p>Guests can read everything in this branch, including messages from before they joined. They can't see the original conversation or anything else.</p>
@@ -339,6 +357,7 @@ export function GuestDialog({ room, onClose }: { room: RoomDTO; onClose: () => v
           })}
         </ul>
       )}
+      </>)}
     </Dialog>
   );
 }
