@@ -142,6 +142,14 @@ export const hub = {
     io.in(channels.guestSession(sessionId)).disconnectSockets(true);
   },
 
+  /** People with at least one window open and in front. A tab left in the background doesn't count. */
+  async activeUsers(userIds: string[]): Promise<string[]> {
+    if (!io || userIds.length === 0) return [];
+    const sockets = await io.in(userIds.map(channels.user)).fetchSockets();
+    const active = sockets.filter((s) => (s.data as { visible?: boolean }).visible === true);
+    return [...new Set(active.map((s) => (s.data as { userId?: string }).userId).filter((id): id is string => !!id))];
+  },
+
   async onlineUsers(userIds: string[]): Promise<string[]> {
     if (!io || userIds.length === 0) return [];
     const sockets = await io.in(userIds.map(channels.user)).fetchSockets();

@@ -1,6 +1,8 @@
 import { Suspense, lazy, useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { Spinner } from './components/ui';
+import { E2eeGate } from './features/e2ee/E2eeGate';
+import { useE2ee } from './features/e2ee/service';
 import { AuthPage } from './features/auth/AuthPage';
 import { rejoinAll } from './features/blocks/blockSession';
 import { AppShell, HomeEmpty, Wordmark } from './features/shell/AppShell';
@@ -27,6 +29,7 @@ const Pane = ({ children }: { children: React.ReactNode }) => (
 
 export function Member() {
   const status = useStore((s) => s.authStatus);
+  const e2ee = useE2ee((s) => s.status);
 
   useEffect(() => {
     void bootstrap();
@@ -42,7 +45,16 @@ export function Member() {
     );
   }
   if (status === 'anon') return <AuthPage />;
+  if (e2ee === 'idle' || e2ee === 'loading') {
+    return (
+      <div className="flex h-dvh items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
   return (
+    <>
+    <E2eeGate />
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<HomeEmpty />} />
@@ -53,5 +65,6 @@ export function Member() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </>
   );
 }

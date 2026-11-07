@@ -1,10 +1,10 @@
-import { ArrowLeft, Bell, ChevronRight, Database, Info, LogOut, Lock, Palette, ShieldCheck, User } from 'lucide-react';
+import { ArrowLeft, Bell, ChevronRight, Database, Info, KeyRound, LogOut, Lock, Palette, ShieldCheck, User } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { Link, NavLink, useParams } from 'react-router';
 import { Avatar, Button, cx } from '../../components/ui';
 import { logout } from '../../state/actions';
 import { useStore } from '../../state/store';
-import { AboutSection, AppearanceSection, DataSection, NotificationsSection, PrivacySection, ProfileSection, SecuritySection } from './sections';
+import { AboutSection, AppearanceSection, DataSection, EncryptionSection, NotificationsSection, PrivacySection, ProfileSection, SecuritySection } from './sections';
 
 interface Entry {
   id: string;
@@ -19,6 +19,7 @@ const GROUPS: [string, Entry[]][] = [
     [
       { id: 'profile', label: 'Profile', icon: <User size={18} />, Page: ProfileSection },
       { id: 'security', label: 'Account and security', icon: <ShieldCheck size={18} />, Page: SecuritySection },
+      { id: 'encryption', label: 'Encryption', icon: <KeyRound size={18} />, Page: EncryptionSection },
     ],
   ],
   [

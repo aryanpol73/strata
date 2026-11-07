@@ -7,12 +7,14 @@ import {
   FileText,
   GitBranch,
   Layers,
+  Lock,
   MoreHorizontal,
   Pencil,
   Radio,
   Smile,
   Trash2,
 } from 'lucide-react';
+import { useE2ee } from '../e2ee/service';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { BranchSummaryDTO, MediaUrlDTO, MessageDTO } from '@strata/shared';
 import { Avatar, Button, Dialog, IconButton, Pill, Textarea, cx, timeLabel } from '../../components/ui';
@@ -168,6 +170,20 @@ function BranchStem({ branches, actions }: { branches: BranchSummaryDTO[]; actio
   );
 }
 
+function EncryptedText({ m }: { m: MessageDTO }) {
+  const opened = useE2ee((s) => s.clear[m.id]);
+  const failed = useE2ee((s) => s.failed[m.id]);
+  const status = useE2ee((s) => s.status);
+  const ct = m.payload.type === 'encrypted' ? m.payload.ct : '';
+  if (opened && opened.ct === ct) return <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{linkify(opened.text)}</p>;
+  const note = failed === ct ? "Couldn't decrypt this message" : status === 'locked' || status === 'needs-setup' ? 'Locked. Unlock encryption to read this.' : 'Waiting for the key…';
+  return (
+    <p className="flex items-center gap-1.5 text-sm italic opacity-80">
+      <Lock size={13} aria-hidden /> {note}
+    </p>
+  );
+}
+
 export function MessageBody({
   m,
   urlFor,
@@ -180,6 +196,8 @@ export function MessageBody({
   switch (m.payload.type) {
     case 'text':
       return <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{linkify(m.payload.text)}</p>;
+    case 'encrypted':
+      return <EncryptedText m={m} />;
     case 'media':
       return <MediaBody payload={m.payload} urlFor={urlFor} />;
     case 'block':
@@ -231,19 +249,22 @@ export function MessageRow({
   const [draft, setDraft] = useState('');
   const [sheet, setSheet] = useState(false);
   const [picker, setPicker] = useState(false);
+  const opened = useE2ee((s) => s.clear[m.id]);
+  const replyOpened = useE2ee((s) => (m.replyTo ? s.clear[m.replyTo.messageId]?.text : undefined));
 
   if (m.payload.type === 'system') {
     return <p className="my-2 text-center text-xs text-ink-3">{m.payload.text}</p>;
   }
 
   const deleted = !!m.deletedAt;
-  const canEdit = mine && m.payload.type === 'text' && !deleted && !readOnly;
+  const canEdit = mine && (m.payload.type === 'text' || (m.payload.type === 'encrypted' && !!opened)) && !deleted && !readOnly;
   const canDelete = (mine || isAdmin) && !deleted && !readOnly;
   const posture = m.posture === 'whisper' || m.posture === 'digest' ? POSTURE_TAG[m.posture] : null;
 
   const startEdit = () => {
-    if (m.payload.type !== 'text') return;
-    setDraft(m.payload.text);
+    if (m.payload.type === 'text') setDraft(m.payload.text);
+    else if (m.payload.type === 'encrypted' && opened) setDraft(opened.text);
+    else return;
     setEditing(true);
   };
 
@@ -284,7 +305,7 @@ export function MessageRow({
             )}
             {m.replyTo && (
               <a href={`#m-${m.replyTo.seq}`} className="mb-1 block max-w-md truncate rounded-md border-l-2 border-current bg-tint-plain px-2 py-0.5 text-[13px] text-ink-2">
-                <span className="font-medium">{m.replyTo.senderName}</span> {m.replyTo.excerpt}
+                <span className="font-medium">{m.replyTo.senderName}</span> {replyOpened ?? m.replyTo.excerpt}
               </a>
             )}
             {editing ? (

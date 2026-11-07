@@ -16,6 +16,10 @@ class StrataDB extends Dexie {
   rooms!: EntityTable<RoomDTO, 'id'>;
   messages!: EntityTable<MessageDTO, 'id'>;
   outbox!: EntityTable<OutboxEntry, 'clientMessageId'>;
+  /** Encryption keys for this device: the person's own private key, and the room keys opened with it. */
+  keys!: EntityTable<{ id: string; key: CryptoKey; publicKey?: string }, 'id'>;
+  /** The public key each person had when first seen. Not secret, and kept across sign-outs so a swapped key is noticed. */
+  pins!: EntityTable<{ id: string; publicKey: string }, 'id'>;
 
   constructor() {
     super('strata');
@@ -23,6 +27,19 @@ class StrataDB extends Dexie {
       rooms: 'id',
       messages: 'id, [roomId+seq]',
       outbox: 'clientMessageId, createdAt',
+    });
+    this.version(2).stores({
+      rooms: 'id',
+      messages: 'id, [roomId+seq]',
+      outbox: 'clientMessageId, createdAt',
+      keys: 'id',
+    });
+    this.version(3).stores({
+      rooms: 'id',
+      messages: 'id, [roomId+seq]',
+      outbox: 'clientMessageId, createdAt',
+      keys: 'id',
+      pins: 'id',
     });
   }
 }
@@ -50,5 +67,5 @@ export async function cachedMessages(roomId: string): Promise<MessageDTO[]> {
 
 /** Nothing from one account should be readable after signing out on a shared machine. */
 export async function clearLocalData() {
-  await Promise.all([db.rooms.clear(), db.messages.clear(), db.outbox.clear()]);
+  await Promise.all([db.rooms.clear(), db.messages.clear(), db.outbox.clear(), db.keys.clear()]);
 }

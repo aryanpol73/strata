@@ -360,14 +360,56 @@ describe('failure handling', () => {
     expect(JSON.stringify(push.mock.calls[0])).not.toContain('very private');
   });
 
-  it('skips push for someone already online', async () => {
+  it('skips push when a window is in front of the person', async () => {
     const { setPushSender, sweep } = await models();
     const push = vi.fn(async () => {});
     setPushSender(push);
-    await socketFor(h, recipient.token);
+    const socket = await socketFor(h, recipient.token);
+    socket.emit('client:visibility', { visible: true });
+    await new Promise((r) => setTimeout(r, 150));
     await send(h, sender, room.id, 'you are here');
     await sweep();
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it('still pushes when the app is open but in the background, such as a phone in a pocket', async () => {
+    const { setPushSender, sweep } = await models();
+    const push = vi.fn(async () => {});
+    setPushSender(push);
+    const socket = await socketFor(h, recipient.token);
+    socket.emit('client:visibility', { visible: false });
+    await new Promise((r) => setTimeout(r, 150));
+    await send(h, sender, room.id, 'look at this');
+    await sweep();
+    expect(push).toHaveBeenCalledTimes(1);
+    // Who and where, never what.
+    expect(push.mock.calls[0]).toMatchObject([recipient.id, { body: 'New message', url: `/r/${room.id}` }]);
+  });
+
+  it('generates push keys once and keeps them', async () => {
+    const { getVapid, resetVapidCache } = await import('../src/lib/vapid.js');
+    const first = await getVapid();
+    resetVapidCache();
+    expect(await getVapid()).toEqual(first);
+    const res = await h.api().get('/api/notifications/push-key').set(as(recipient));
+    expect(res.body.publicKey).toBe(first.publicKey);
+  });
+
+  it('shows what a digest is holding, and delivers it early on request', async () => {
+    const { setPushSender, sweep } = await models();
+    const push = vi.fn(async () => {});
+    setPushSender(push);
+    await send(h, sender, room.id, 'one', { posture: 'digest' });
+    await send(h, sender, room.id, 'two', { posture: 'digest' });
+    const held = await h.api().get('/api/notifications/digest-queue').set(as(recipient));
+    expect(held.body.total).toBe(2);
+    expect(held.body.items[0]).toMatchObject({ roomId: room.id, count: 2 });
+
+    const flushed = await h.api().post('/api/notifications/digest/flush').set(as(recipient));
+    expect(flushed.body.delivered).toBe(2);
+    await sweep();
+    expect(push).toHaveBeenCalledTimes(1);
+    expect((await h.api().get('/api/notifications/digest-queue').set(as(recipient))).body.total).toBe(0);
   });
 });
 

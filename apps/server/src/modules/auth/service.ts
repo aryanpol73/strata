@@ -18,7 +18,7 @@ export interface ClientInfo {
   ip: string;
 }
 
-export const toSelf = (u: Pick<IUser, '_id' | 'email' | 'displayName' | 'handle' | 'avatarUrl' | 'avatarPrivate' | 'showOnline' | 'appearance' | 'bio'>): SelfDTO => ({
+export const toSelf = (u: Pick<IUser, '_id' | 'email' | 'displayName' | 'handle' | 'avatarUrl' | 'avatarPrivate' | 'showOnline' | 'appearance' | 'e2ee' | 'bio'>): SelfDTO => ({
   id: String(u._id),
   email: u.email,
   displayName: u.displayName,
@@ -27,6 +27,7 @@ export const toSelf = (u: Pick<IUser, '_id' | 'email' | 'displayName' | 'handle'
   avatarPrivate: u.avatarPrivate ?? false,
   showOnline: u.showOnline ?? true,
   appearance: u.appearance ?? null,
+  e2ee: u.e2ee ? { publicKey: u.e2ee.publicKey, hasBackup: !!u.e2ee.backup } : null,
   bio: u.bio,
 });
 

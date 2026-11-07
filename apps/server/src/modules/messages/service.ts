@@ -3,6 +3,7 @@ import {
   messagePayload,
   payloadExcerpt,
   sendMessageInput,
+  type EncryptedBody,
   type MessageDTO,
   type MessagePage,
   type MessagePayload,
@@ -106,12 +107,27 @@ export async function resolveReply(roomId: Types.ObjectId, replyToId?: string): 
   };
 }
 
+/**
+ * Encrypted conversations take ciphertext only. Refusing plaintext here is what keeps an old or modified client from
+ * quietly writing readable messages into a conversation that promises they're sealed.
+ */
+function assertEncryption(room: IRoom, content: { type: string; kv?: number; caption?: string }) {
+  if (!room.encrypted) {
+    if (content.type === 'encrypted') throw badRequest('This conversation is not encrypted');
+    return;
+  }
+  if (content.type === 'text') throw badRequest('This conversation is end-to-end encrypted. Reload Strata to update it, then try again.');
+  if (content.type === 'media' && content.caption) throw badRequest('Captions are not supported in encrypted conversations');
+  if (content.type === 'encrypted' && (!room.keyVersion || content.kv! > room.keyVersion)) throw badRequest('Encryption keys are not ready yet');
+}
+
 async function resolveContent(
   content: z.output<typeof sendMessageInput>['content'],
   room: IRoom,
   userId: string,
 ): Promise<MessagePayload> {
   if (content.type === 'text') return content;
+  if (content.type === 'encrypted') return content;
   const asset = await MediaAsset.findOne({ _id: content.assetId, roomId: room._id, uploaderId: userId, status: 'ready' }).lean();
   if (!asset) throw badRequest('That file is not available in this conversation');
   return {
@@ -138,6 +154,7 @@ function assertBlockingAllowed(room: IRoom, role: string, deadline: Date) {
 export async function sendUserMessage(user: AuthedUser, roomId: string, input: z.output<typeof sendMessageInput>) {
   const { room, member } = await requireMember(roomId, user.id);
   assertAcceptsMessages(room);
+  assertEncryption(room, input.content);
 
   const deadline = input.ackDeadline ? new Date(input.ackDeadline) : undefined;
   if (input.posture === 'blocking_ack') assertBlockingAllowed(room, member.role, deadline!);
@@ -201,14 +218,24 @@ async function loadOwnedRoomMessage(messageId: string, userId: string) {
   return { message, ...access };
 }
 
-export async function editMessage(messageId: string, userId: string, text: string) {
+export type MessageEdit = { text: string } | { encrypted: EncryptedBody };
+
+export async function editMessage(messageId: string, userId: string, edit: MessageEdit) {
   const { message, room } = await loadOwnedRoomMessage(messageId, userId);
   assertAcceptsMessages(room);
   if (message.sender.id !== userId) throw forbidden('You can only edit your own messages');
   if (message.deletedAt) throw conflict('This message has been deleted');
-  if (message.payload.type !== 'text') throw badRequest('Only text messages can be edited');
+  if (message.payload.type !== 'text' && message.payload.type !== 'encrypted') throw badRequest('Only text messages can be edited');
 
-  const payload = { type: 'text' as const, text };
+  let payload: MessagePayload;
+  if ('encrypted' in edit) {
+    if (!room.encrypted) throw badRequest('This conversation is not encrypted');
+    if (edit.encrypted.kv > (room.keyVersion ?? 0)) throw badRequest('Encryption keys are not ready yet');
+    payload = { type: 'encrypted', ...edit.encrypted };
+  } else {
+    if (room.encrypted) throw badRequest('This conversation is end-to-end encrypted. Reload Strata to update it, then try again.');
+    payload = { type: 'text', text: edit.text };
+  }
   return reviseMessage(message._id, message.roomId, {
     $set: { payload, searchText: searchTextFor(payload), editedAt: new Date() },
   });

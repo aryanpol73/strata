@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@strata/shared';
 import { client } from '../api/client';
+import { ensureRoomKeys } from '../features/e2ee/service';
 import { handleRevoked, loadNeedsYou, loadNotifications, loadRoom, resync } from '../state/actions';
 import { cacheMessages } from '../state/db';
 import { useStore } from '../state/store';
@@ -43,8 +44,13 @@ export function connectSocket() {
   window.addEventListener('offline', goOffline);
   window.addEventListener('online', goOnline);
 
+  /** Which window is in front decides where an alert goes: here, or to the phone as a push. */
+  const tellVisibility = () => s.emit('client:visibility', { visible: document.visibilityState === 'visible' });
+  document.addEventListener('visibilitychange', tellVisibility);
+
   s.on('connect', () => {
     useStore.setState({ connection: 'online' });
+    tellVisibility();
     if (!firstConnect) void resync();
     firstConnect = false;
     connectListeners.forEach((fn) => fn());
@@ -86,15 +92,17 @@ export function connectSocket() {
   s.on('presence', ({ userId, online }) => get().setPresence(userId, online));
   s.on('notification:new', ({ notification }) => {
     get().addNotification(notification);
-    if (notification.kind !== 'message' || notification.posture === 'blocking_ack') {
-      get().showToast(notification.title);
-    }
+    // Someone already reading the conversation doesn't need telling about what's on screen.
+    const reading = document.visibilityState === 'visible' && !!notification.roomId && location.pathname === `/r/${notification.roomId}`;
+    if (reading && notification.kind === 'message' && notification.posture !== 'blocking_ack') return;
+    get().showToast(notification.kind === 'message' ? `${notification.title}: ${notification.body}` : notification.title);
   });
 
-  s.on('room:joined', ({ roomId }) => void loadRoom(roomId).catch(() => {}));
+  s.on('room:joined', ({ roomId }) => void loadRoom(roomId).then(() => ensureRoomKeys(roomId)).catch(() => {}));
+  s.on('keys:updated', ({ roomId }) => void ensureRoomKeys(roomId).catch(() => {}));
   s.on('room:left', ({ roomId }) => get().removeRoom(roomId));
   s.on('room:updated', ({ room }) => get().patchRoom(room.id, room));
-  s.on('member:updated', ({ roomId }) => void loadRoom(roomId).catch(() => {}));
+  s.on('member:updated', ({ roomId }) => void loadRoom(roomId).then(() => ensureRoomKeys(roomId)).catch(() => {}));
   s.on('branch:updated', ({ roomId, branch }) => {
     const room = get().rooms[roomId];
     if (room?.branch) get().patchRoom(roomId, { branch: { ...room.branch, ...branch } });
@@ -113,6 +121,7 @@ export function connectSocket() {
 function previewOf(message: { payload: { type: string } & Record<string, unknown> }): string {
   const p = message.payload;
   if (p.type === 'text') return String(p.text).slice(0, 140);
+  if (p.type === 'encrypted') return 'Encrypted message';
   if (p.type === 'media') return String(p.caption || p.name);
   if (p.type === 'block') return String(p.title);
   if (p.type === 'resolution') return `Resolved: ${String(p.summary).slice(0, 120)}`;

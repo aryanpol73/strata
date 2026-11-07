@@ -106,8 +106,20 @@ Room id never appears in guest paths, because it comes from the capability.
 remove the profile photo. `GET /avatars/:userId/:key` serves it with no sign-in, because the random key is the permission,
 and that key changes when a photo goes private. `PATCH /users/me` also takes `avatarPrivate`, `showOnline` and `appearance`.
 
+### Encryption
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/e2ee/me` | My public key and my passphrase-protected backup |
+| PUT | `/e2ee/me` | Set or replace them. A different public key drops every room key sealed to the old one |
+| GET | `/e2ee/rooms/:id` | Current key version, whether a new one is due, my sealed copies, and each member's public key and the versions they hold |
+| POST | `/e2ee/rooms/:id/keys` | Seal keys for members. `newVersion` starts a version, which only one request can win |
+
+Sending to an encrypted conversation takes `content: { type: 'encrypted', v, kv, iv, ct }`, and editing takes
+`{ encrypted: { v, kv, iv, ct } }`. Plaintext is refused with 400.
+
 `GET/PUT /notifications/preferences`, `GET /notifications`, `GET /notifications/needs-you` (acknowledgements still
-waiting on me), `POST /notifications/read`,
+waiting on me), `GET /notifications/digest-queue` (what is held for my digest), `POST /notifications/digest/flush` (deliver it now), `POST /notifications/read`,
 `GET /notifications/push-key`, `POST /notifications/push-subscriptions`, `DELETE /notifications/push-subscriptions`,
 `POST /media/sign`, `POST /media/:id/complete`, `GET /media/:id/url`.
 
@@ -123,6 +135,7 @@ Connect with `auth: { token }`. Member and guest tokens are distinguished by aud
 | `room:updated` | `{ room }` | Sanitized |
 | `room:joined` / `room:left` | `{ roomId }` | No |
 | `member:updated` | `{ roomId, userId }` | No |
+| `keys:updated` | `{ roomId }` | No. Someone's keys changed or a key was shared, so check what can now be opened |
 | `receipt` | `{ roomId, principalId, deliveredSeq, readSeq }` | No |
 | `typing` | `{ roomId, principalId, name, active }` | Yes |
 | `presence` | `{ userId, online }` | No |

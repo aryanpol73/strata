@@ -67,6 +67,21 @@ export async function say(request: APIRequestContext, who: Person, roomId: strin
 }
 
 /** Each person gets their own browser context, so they share nothing, exactly like two separate machines. */
+/** Everyone sets up encryption once, and unlocks it on each new device, with the same passphrase. */
+export const passphraseOf = (who: Person) => `passphrase for ${who.handle}`;
+
+export async function passEncryptionGate(page: Page, who: Person) {
+  const dialog = page.getByRole('dialog', { name: /Protect your conversations|Unlock your messages/ });
+  // The app only renders once encryption's state is known, so if the screen is going to appear it's there by now.
+  await expect(page.getByRole('navigation', { name: 'Conversations' })).toBeVisible({ timeout: 15_000 });
+  if (!(await dialog.isVisible())) return;
+  await dialog.getByLabel('Encryption passphrase').fill(passphraseOf(who));
+  const repeat = dialog.getByLabel('Repeat passphrase');
+  if (await repeat.count()) await repeat.fill(passphraseOf(who));
+  await dialog.getByRole('button', { name: /Set up encryption|Unlock/ }).click();
+  await expect(dialog).toBeHidden({ timeout: 20_000 });
+}
+
 export async function signIn(browser: Browser, baseURL: string, who: Person, options: BrowserContextOptions = {}) {
   const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 900 }, ...options });
   const page = watch(await context.newPage());
@@ -74,6 +89,7 @@ export async function signIn(browser: Browser, baseURL: string, who: Person, opt
   await page.getByLabel('Email').fill(who.email);
   await page.getByLabel('Password').fill(who.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
+  await passEncryptionGate(page, who);
   await expect(page.getByRole('navigation', { name: 'Conversations' })).toBeVisible();
   return page;
 }

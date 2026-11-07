@@ -33,6 +33,8 @@ export const createBranchInput = z.object({
   title: z.string().trim().min(1).max(LIMITS.roomName),
   participantIds: z.array(objectId).max(LIMITS.groupMembers),
   visibility: z.enum(BRANCH_VISIBILITIES).default('listed'),
+  /** Branches inherit encryption. Turning it off is how a branch can take guests, who have no keys. */
+  encrypted: z.boolean().default(true),
 });
 export type CreateBranchInput = z.input<typeof createBranchInput>;
 export const addParticipantsInput = z.object({ userIds: z.array(objectId).min(1).max(50) });
@@ -93,6 +95,8 @@ export interface RoomDTO {
   depth: number;
   branch: BranchInfoDTO | null;
   settings: { blockingAck: 'admins' | 'members' };
+  /** Whether messages here are end-to-end encrypted, and which key version is current. */
+  encryption: { enabled: boolean; keyVersion: number; needsRotation: boolean };
   /** Calling member's state. `readOnly` marks a merged transcript opened to parent members. */
   me: {
     role: MemberRole | null;

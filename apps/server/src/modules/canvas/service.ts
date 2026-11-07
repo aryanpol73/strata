@@ -159,6 +159,8 @@ export async function createBlock(user: AuthedUser, roomId: string, input: z.out
     // Same room only. Filing a branch message on the parent's Canvas would show it to people outside the branch.
     message = await Message.findOne({ _id: input.fromMessageId, roomId, deletedAt: null }).lean();
     if (!message) throw badRequest('That message is not in this conversation');
+    // The server can't read an encrypted message, so whoever files it has to supply the text, knowing the Canvas is plain.
+    if (message.payload.type === 'encrypted' && !content) throw badRequest('Add the text yourself. The server cannot read encrypted messages.');
     content = content ?? extract(message, input.asKind);
     source = {
       messageId: message._id,

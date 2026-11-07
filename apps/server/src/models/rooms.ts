@@ -36,6 +36,9 @@ export interface IRoom {
   lastMessage: { seq: number; senderName: string; text: string; posture: Posture; at: Date } | null;
   createdBy: Types.ObjectId;
   settings: { blockingAck: 'admins' | 'members' };
+  encrypted: boolean;
+  keyVersion: number;
+  needsRotation: boolean;
   parentRoomId: Types.ObjectId | null;
   parentMessageId: Types.ObjectId | null;
   rootRoomId: Types.ObjectId | null;
@@ -73,6 +76,9 @@ const roomSchema = new Schema<IRoom>(
     },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     settings: { blockingAck: { type: String, enum: ['admins', 'members'], default: 'members' } },
+    encrypted: { type: Boolean, default: false },
+    keyVersion: { type: Number, default: 0 },
+    needsRotation: { type: Boolean, default: false },
     parentRoomId: { type: Schema.Types.ObjectId, default: null },
     parentMessageId: { type: Schema.Types.ObjectId, default: null },
     rootRoomId: { type: Schema.Types.ObjectId, default: null },

@@ -59,6 +59,7 @@ export async function createBranch(user: AuthedUser, messageId: string, input: R
     parentMessageId: message._id,
     rootRoomId: parent.rootRoomId ?? parent._id,
     depth: parent.depth + 1,
+    encrypted: parent.encrypted && input.encrypted,
     branch: {
       title: input.title,
       status: 'open',
@@ -197,6 +198,10 @@ export async function mergeBranch(user: AuthedUser, branchId: string, transcript
 
   const parent = await Room.findById(room.parentRoomId).lean();
   if (!parent) throw notFound('Conversation');
+  // People outside an encrypted branch have no key for it, so opening its transcript to them would show only ciphertext.
+  if (room.encrypted && transcriptPolicy === 'parent_members') {
+    throw badRequest('This branch is end-to-end encrypted, so its transcript cannot be shared outside it. Only the summary can be.');
+  }
   const participantCount = await RoomMember.countDocuments({ roomId: room._id, leftAt: null });
 
   const { message } = await postMessage({

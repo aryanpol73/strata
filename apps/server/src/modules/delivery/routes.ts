@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { markNotificationsReadInput, notificationPreferences, pushSubscriptionInput } from '@strata/shared';
-import { getEnv } from '../../config/env.js';
+import { getVapid } from '../../lib/vapid.js';
 import { parse } from '../../lib/http.js';
 import { currentUser, requireUser } from '../auth/middleware.js';
 import * as delivery from './service.js';
@@ -31,8 +31,16 @@ notificationRoutes.post('/read', async (req, res) => {
   res.status(204).end();
 });
 
-notificationRoutes.get('/push-key', (_req, res) => {
-  res.json({ publicKey: getEnv().VAPID_PUBLIC_KEY ?? null });
+notificationRoutes.get('/push-key', async (_req, res) => {
+  res.json({ publicKey: (await getVapid()).publicKey });
+});
+
+notificationRoutes.get('/digest-queue', async (req, res) => {
+  res.json(await delivery.digestQueue(currentUser(req).id));
+});
+
+notificationRoutes.post('/digest/flush', async (req, res) => {
+  res.json({ delivered: await delivery.flushDigest(currentUser(req).id) });
 });
 
 notificationRoutes.post('/push-subscriptions', async (req, res) => {

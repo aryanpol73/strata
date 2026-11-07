@@ -1,11 +1,15 @@
 import type { Types } from 'mongoose';
 import type { BranchInfoDTO, CreateGroupInput, MemberDTO, MemberRole, RoomDTO } from '@strata/shared';
 import { badRequest, forbidden, isDuplicateKey, notFound } from '../../lib/errors.js';
+import { RoomKey } from '../../models/e2ee.js';
 import { User } from '../../models/identity.js';
 import { Message } from '../../models/messages.js';
 import { Room, RoomMember, type IRoom, type IRoomMember } from '../../models/rooms.js';
 import { hub } from '../../realtime/hub.js';
 import { isAdmin, requireAdmin, requireMember, requireRead, type RoomAccess } from '../access.js';
+
+/** A conversation is encrypted when the person starting it has encryption set up, which the app requires of everyone. */
+export const hasEncryption = async (userId: string) => !!(await User.exists({ _id: userId, e2ee: { $ne: null } }));
 
 export const toBranchInfo = (room: IRoom): BranchInfoDTO | null => {
   const b = room.branch;
@@ -75,6 +79,7 @@ export async function serializeRoom({ room, member, readOnly }: RoomAccess, user
     depth: room.depth,
     branch: toBranchInfo(room),
     settings: { blockingAck: room.settings?.blockingAck ?? 'members' },
+    encryption: { enabled: !!room.encrypted, keyVersion: room.keyVersion ?? 0, needsRotation: !!room.needsRotation },
     me: {
       role: member?.role ?? null,
       lastReadSeq: member?.lastReadSeq ?? 0,
@@ -124,7 +129,7 @@ export async function findOrCreateDirect(userId: string, otherId: string): Promi
   let room = await Room.findOne({ directKey }).lean();
   if (!room) {
     try {
-      room = (await Room.create({ kind: 'direct', directKey, createdBy: userId })).toObject();
+      room = (await Room.create({ kind: 'direct', directKey, createdBy: userId, encrypted: await hasEncryption(userId) })).toObject();
     } catch (err) {
       // Both people opened the conversation at the same moment. The other request won, so use its room.
       if (!isDuplicateKey(err)) throw err;
@@ -143,7 +148,7 @@ export async function findOrCreateDirect(userId: string, otherId: string): Promi
 export async function createGroup(userId: string, input: CreateGroupInput): Promise<RoomDTO> {
   const memberIds = [...new Set(input.memberIds.filter((id) => id !== userId))];
   if ((await User.countDocuments({ _id: { $in: memberIds } })) !== memberIds.length) throw notFound('User');
-  const room = await Room.create({ kind: 'group', name: input.name, createdBy: userId });
+  const room = await Room.create({ kind: 'group', name: input.name, createdBy: userId, encrypted: await hasEncryption(userId) });
   await Promise.all([addMemberRow(room._id, userId, 'owner'), ...memberIds.map((id) => addMemberRow(room._id, id))]);
   return getRoom(String(room._id), userId);
 }
@@ -188,6 +193,9 @@ export async function setRole(roomId: string, actorId: string, userId: string, r
 async function departRoom(roomId: Types.ObjectId, userId: string): Promise<void> {
   const left = await RoomMember.updateOne({ roomId, userId, leftAt: null }, { leftAt: new Date() });
   if (left.modifiedCount === 0) return;
+  // Whoever leaves still knows the room key, so the next message has to be sealed with a new one they never get.
+  await Room.updateOne({ _id: roomId, encrypted: true }, { needsRotation: true });
+  await RoomKey.deleteMany({ roomId, userId });
   hub.leaveRoom(userId, String(roomId));
   hub.toRoom(String(roomId), 'member:updated', { roomId: String(roomId), userId });
 

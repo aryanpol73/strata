@@ -52,6 +52,8 @@ export type Appearance = NonNullable<UpdateProfileInput['appearance']>;
 
 export interface SelfDTO extends UserDTO {
   email: string;
+  /** Null until they set up encryption. The private key is never here, only that a protected backup exists. */
+  e2ee: { publicKey: string; hasBackup: boolean } | null;
   avatarPrivate: boolean;
   showOnline: boolean;
   /** Null until the person chooses, so a device keeps its own look until then. */

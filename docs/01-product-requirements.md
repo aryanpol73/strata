@@ -79,6 +79,6 @@ allows it, and sending one is rate limited so it can't become a harassment tool.
 
 ## Non-goals
 
-- End-to-end encryption. Messages are readable by the server, and Strata does not claim otherwise.
+- End-to-end encryption of files, the Canvas, live blocks and guest branches. See the security model for what is and isn't covered.
 - Voice or video calls.
 - Replacing a project-management tool. Blocks stay deliberately small.

@@ -3,6 +3,7 @@ export * from './blocks/index.js';
 export * from './canvas.js';
 export * from './common.js';
 export * from './delivery.js';
+export * from './e2ee.js';
 export * from './errors.js';
 export * from './events.js';
 export * from './guests.js';
