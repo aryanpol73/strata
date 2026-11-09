@@ -132,6 +132,7 @@ function InboxPane({ onNew, onSearch }: { onNew: () => void; onSearch: () => voi
   const rooms = useStore((s) => s.rooms);
   const roomsLoaded = useStore((s) => s.roomsLoaded);
   const connection = useStore((s) => s.connection);
+  const waking = useStore((s) => s.waking);
   const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>('all');
 
   const sorted = useMemo(
@@ -163,6 +164,11 @@ function InboxPane({ onNew, onSearch }: { onNew: () => void; onSearch: () => voi
         ))}
       </div>
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto px-3 pb-28 lg:pb-3">
+        {waking && (
+          <p role="status" className="mb-3 rounded-2xl bg-tint-crystal px-3 py-2 text-[13px] text-ink-2">
+            Waking the server. Your conversations are shown from this device, and everything updates in a moment.
+          </p>
+        )}
         <NotificationPrompt />
         <NeedsYouStrip />
         {!roomsLoaded ? (

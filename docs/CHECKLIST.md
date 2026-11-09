@@ -12,8 +12,8 @@ Last updated 2026-11-07. The rule here is that nothing is marked complete withou
 | `packages/shared` | 9 of 9 | Yjs documents |
 | `apps/server` | 257 of 257 | Real MongoDB 8.2, real Redis 7.4, real Socket.IO clients, and a second real server process |
 | `apps/web` | 20 of 20 | Store and block session logic |
-| `apps/e2e` | 89 of 89 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
-| **Total** | **375 of 375** | |
+| `apps/e2e` | 90 of 90 | Real Chromium, with separate contexts for each person. Fails on any page error or CSP violation |
+| **Total** | **376 of 376** | |
 
 Type-checking passes in all packages, with `strict` and `noUncheckedIndexedAccess`. Production builds pass. The largest
 web chunk is 273 KB (88 KB gzipped). Accessibility audits (axe, WCAG 2.1 AA) pass on the main screens in all four looks: Violet and Emerald, each dark and light, including every Settings section.
@@ -94,6 +94,15 @@ Investigated after notifications weren't arriving. The causes, and what changed:
 - [x] **Digest was invisible.** It now has a held-items list on the Attention screen with a "Send now" button, a per-conversation "Digest only" setting, a plain explanation in Settings, and a summary that names the conversations (Automated)
 - [ ] **Real push delivery** to a real browser subscription is still unverified, and push on an iPhone needs the app added to the home screen
 - [ ] **The free Render plan sleeps,** so timed work such as digests runs late while it does. See the deployment guide
+
+### Cold starts on the free host
+
+- [x] The page opens from the device's saved copy and refreshes behind it, instead of waiting on the server (Browser)
+- [x] With conversations saved, the app shows them after three seconds at most while a slow server wakes, with a notice, and the browser test fails without this (Browser)
+- [x] A keep-awake workflow pings the app every five minutes
+- [ ] **The keep-awake workflow has not run yet.** It starts once it's on `main`, and GitHub's scheduling is best-effort
+- [ ] A device that has never signed in still waits for the server on its first visit
+- [x] Fixed on the way: the saved copy of the account was written before encryption was set up, so an offline or slow start would have asked for the passphrase setup again
 
 ### End-to-end encryption
 

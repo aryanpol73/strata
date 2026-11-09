@@ -131,8 +131,17 @@ has been added to the home screen first, because Safari tabs can't receive push.
 
 **The free Render plan sleeps after 15 minutes without traffic,** so nothing timed runs while it's asleep: digests, reminders
 and acknowledgement deadlines run late, and a push can only go out once something wakes the server. A message from anyone does
-wake it. For timely delivery, have an uptime monitor request `/api/health` every few minutes. A single service kept awake all
-month uses about 744 of the 750 free hours, so keep it to one service. Check Render's terms before relying on this.
+wake it.
+
+`.github/workflows/keepalive.yml` requests `/api/health` every five minutes so that it rarely sleeps. It runs from the default branch,
+so it starts once merged to `main`, and it's free for a public repository (a private one would use its monthly Actions minutes).
+GitHub can delay scheduled runs under load, and pauses them after 60 days without repository activity, which a push or
+the Run workflow button restarts. Set a repository variable `APP_URL` if the address changes. A service kept awake all month
+uses about 744 of the 750 free hours, so keep it to one service, and check Render's terms.
+
+When it does sleep, the app opens anyway. The page and the conversations already on the device are shown at once, with a
+"Waking the server" notice, and everything updates when the server answers. A device that has never signed in has nothing
+saved to show, so its first visit still waits.
 
 ## Operations
 

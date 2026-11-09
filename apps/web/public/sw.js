@@ -1,5 +1,5 @@
 /* Strata service worker: keeps the app shell available offline and receives Web Push. */
-const CACHE = 'strata-shell-v3';
+const CACHE = 'strata-shell-v4';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(['/', '/manifest-violet.webmanifest', '/icons/violet-192.png'])));
@@ -23,7 +23,20 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api') || url.pathname.startsWith('/socket.io')) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match('/')));
+    // The page opens from the saved copy at once, and is refreshed behind it for next time. Waiting on the network here is
+    // what made opening the app take a minute whenever the server had been asleep.
+    event.respondWith(
+      caches.open(CACHE).then(async (cache) => {
+        const saved = await cache.match('/');
+        const fresh = fetch(request).then((response) => {
+          if (response.ok) cache.put('/', response.clone());
+          return response;
+        });
+        if (!saved) return fresh.catch(() => caches.match('/'));
+        event.waitUntil(fresh.catch(() => {}));
+        return saved;
+      }),
+    );
     return;
   }
   event.respondWith(

@@ -12,9 +12,12 @@ const get = useStore.getState;
 const newId = () => crypto.randomUUID();
 const flushOnline = () => void flushOutbox();
 const START_RETRY_MS = 4000;
+/** How long the server may take before the app opens from what's saved on this device. */
+const SLOW_START_MS = 3000;
 
 async function enter(res: AuthResponse) {
   client.setToken(res.accessToken);
+  useStore.setState({ waking: false });
   get().setAuth(res.user, res.sessionId);
   adoptAppearance(res.user.appearance);
   // Settled before anything is shown, so the app never appears for a moment and then gets covered by the unlock screen.
@@ -32,8 +35,9 @@ async function enter(res: AuthResponse) {
 }
 
 /** Tabs share a rotating cookie, so this takes the same lock as every other refresh. */
-const refreshSession = () => {
-  const run = () => fetch('/api/auth/refresh', { method: 'POST', headers: CLIENT_HEADER, credentials: 'same-origin' });
+const refreshSession = (patience?: number) => {
+  const run = () =>
+    fetch('/api/auth/refresh', { method: 'POST', headers: CLIENT_HEADER, credentials: 'same-origin', signal: patience ? AbortSignal.timeout(patience) : undefined });
   return navigator.locks ? navigator.locks.request('strata-refresh', run) : run();
 };
 
@@ -42,13 +46,16 @@ async function start() {
   // The cache paints the sidebar before the network answers, and it's all there is when offline.
   const cached = await db.rooms.toArray().catch(() => []);
   try {
-    const res = await refreshSession();
+    // With something saved to show, don't make anyone watch a spinner while a sleeping server wakes. Without it there's
+    // nothing to show yet, so wait as long as it takes.
+    const res = await refreshSession(cached.length ? SLOW_START_MS : undefined);
     if (res.ok) return await enter((await res.json()) as AuthResponse);
     get().setAuth(null);
   } catch {
     if (cached.length) {
       get().setRooms(cached);
-      useStore.setState({ authStatus: 'ready', connection: 'offline', me: JSON.parse(localStorage.getItem('strata:me') ?? 'null') });
+      const waking = navigator.onLine;
+      useStore.setState({ authStatus: 'ready', connection: waking ? 'connecting' : 'offline', waking, me: JSON.parse(localStorage.getItem('strata:me') ?? 'null') });
       void initE2ee();
       retryStartWhenOnline();
     } else {

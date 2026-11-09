@@ -28,6 +28,8 @@ interface State {
   sessionId: string | null;
   authStatus: 'loading' | 'anon' | 'ready';
   connection: 'connecting' | 'online' | 'offline';
+  /** Started from what's saved on this device because the server is slow to answer, which is what a sleeping one looks like. */
+  waking: boolean;
   rooms: Record<string, RoomDTO>;
   roomsLoaded: boolean;
   messages: Record<string, RoomMessages>;
@@ -81,6 +83,7 @@ const initial = {
   me: null,
   sessionId: null,
   connection: 'connecting' as const,
+  waking: false,
   rooms: {},
   roomsLoaded: false,
   messages: {},
@@ -196,3 +199,16 @@ export const useStore = create<State>((set) => ({
 
 export const toast = (text: string, tone: 'info' | 'error' = 'info') => useStore.getState().showToast(text, tone);
 export const toastError = (err: unknown) => toast(err instanceof Error ? err.message : 'Something went wrong', 'error');
+
+/**
+ * What an offline or slow start shows about the signed-in person comes from here, so it has to follow every change to it.
+ * Saving it only when rooms load left it without the person's encryption setup, which then asked them to set it up again.
+ */
+useStore.subscribe((state, previous) => {
+  if (state.me === previous.me || !state.me) return;
+  try {
+    localStorage.setItem('strata:me', JSON.stringify(state.me));
+  } catch {
+    // Storage can be refused, and the app works without it.
+  }
+});
