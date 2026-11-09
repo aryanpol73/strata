@@ -406,6 +406,7 @@ export function RoomPage() {
   const canvasOpen = useStore((s) => s.canvasOpen);
   const setCanvasOpen = useStore((s) => s.setCanvasOpen);
   const connection = useStore((s) => s.connection);
+  const waking = useStore((s) => s.waking);
 
   const [missing, setMissing] = useState(false);
   const [replyTo, setReplyTo] = useState<MessageDTO | null>(null);
@@ -579,6 +580,7 @@ export function RoomPage() {
         {room.kind === 'branch' && room.branch && (
           <BranchBar room={room} onResolve={() => setDialog('resolve')} onMerge={() => setDialog('merge')} onGuests={() => setDialog('guests')} onAdd={() => setDialog('add')} />
         )}
+        {waking && <p role="status" className="bg-tint-crystal px-4 py-1 text-center text-xs text-crystal">Waking the server. Messages you write now will send as soon as it's up.</p>}
         {connection === 'offline' && <p className="bg-tint-crystal px-4 py-1 text-center text-xs text-crystal">You're offline. Messages will send when you reconnect.</p>}
 
         {showCanvasInline && <div className="min-h-0 flex-1 bg-sheet">{canvas}</div>}
